@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from data.models import init_db, get_session, Prediction, Outcome, StrategyStats
 from orchestrator import PredictionOrchestrator
 from verification import PredictionVerifier
+from backtester import Backtester
 
 
 def cmd_predict(args):
@@ -178,6 +179,57 @@ def cmd_init(args):
     print("✅ Database initialized!")
 
 
+def cmd_backtest(args):
+    """Run backtests with train/test splits and statistical validation."""
+    print("🧪 Market Prediction Engine - Backtest with Statistical Validation")
+    print("=" * 70)
+    
+    # Parse symbols
+    if args.symbols:
+        symbols = [s.strip().lower() for s in args.symbols.split(",")]
+    else:
+        symbols = ["bitcoin", "ethereum"]
+    
+    days = args.days or 90
+    split = args.split or 0.7
+    
+    print(f"\nSettings:")
+    print(f"  • Assets: {', '.join(s.upper() for s in symbols)}")
+    print(f"  • Historical Data: {days} days")
+    print(f"  • Train/Test Split: {split:.0%} / {1-split:.0%}")
+    print(f"  • Significance Level: α = 0.05")
+    
+    backtester = Backtester()
+    
+    if len(symbols) == 1:
+        # Single asset backtest
+        historical = backtester.fetch_historical_data(symbols[0], days=days)
+        if len(historical) < 40:
+            print(f"❌ Insufficient data for {symbols[0]}")
+            return
+        
+        results = backtester.run_backtest(
+            symbol=symbols[0],
+            historical_prices=historical,
+            train_test_split=split
+        )
+        backtester.print_results(results, symbols[0])
+    else:
+        # Multi-asset backtest
+        results = backtester.run_multi_asset_backtest(
+            symbols=symbols,
+            days=days,
+            train_test_split=split
+        )
+        
+        # Print per-asset results
+        for symbol, symbol_results in results.items():
+            backtester.print_results(symbol_results, symbol)
+        
+        # Print cross-asset summary
+        backtester.print_multi_asset_summary(results)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Market Prediction Engine - Predict crypto prices with multiple strategies",
@@ -190,6 +242,8 @@ Examples:
   %(prog)s status                     Show strategy leaderboard
   %(prog)s history                    Show prediction history
   %(prog)s history -n 50              Show last 50 predictions
+  %(prog)s backtest                   Run backtest with train/test split
+  %(prog)s backtest -d 90 --split 0.7 Run 90-day backtest with 70/30 split
   %(prog)s run                        Start web dashboard
         """
     )
@@ -225,6 +279,13 @@ Examples:
     # init command
     init_parser = subparsers.add_parser("init", help="Initialize database")
     init_parser.set_defaults(func=cmd_init)
+    
+    # backtest command
+    backtest_parser = subparsers.add_parser("backtest", help="Run backtest with train/test split and statistical validation")
+    backtest_parser.add_argument("-s", "--symbols", help="Comma-separated coin symbols (default: bitcoin,ethereum)")
+    backtest_parser.add_argument("-d", "--days", type=int, default=90, help="Days of historical data (default: 90)")
+    backtest_parser.add_argument("--split", type=float, default=0.7, help="Train/test split ratio (default: 0.7)")
+    backtest_parser.set_defaults(func=cmd_backtest)
     
     args = parser.parse_args()
     
