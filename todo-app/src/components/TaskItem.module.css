@@ -10,6 +10,10 @@
   animation: slideIn 0.2s ease-out;
 }
 
+.taskItem.deleting {
+  animation: slideOutLeft 0.15s ease-out forwards;
+}
+
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -18,6 +22,17 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes slideOutLeft {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-20px);
   }
 }
 
@@ -72,12 +87,31 @@
   font-size: 16px;
   color: #111827;
   word-break: break-word;
-  transition: color 0.2s ease, text-decoration 0.2s ease;
+  position: relative;
+  display: inline-block;
 }
 
-.completed .title {
+.titleText {
+  transition: color 0.2s ease;
+}
+
+.completed .titleText {
   color: #6b7280;
-  text-decoration: line-through;
+}
+
+/* Animated strikethrough line */
+.strikethrough {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 1.5px;
+  background: #6b7280;
+  width: 0;
+  transition: width 0.2s ease-out;
+}
+
+.completed .strikethrough {
+  width: 100%;
 }
 
 .deleteButton {

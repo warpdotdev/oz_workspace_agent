@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import type { Task } from '../types/task';
 import styles from './TaskItem.module.css';
 
@@ -9,8 +9,23 @@ interface TaskItemProps {
 }
 
 export const TaskItem = memo(function TaskItem({ task, onToggle, onDelete }: TaskItemProps) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = () => {
+    setIsDeleting(true);
+  };
+
+  const handleAnimationEnd = () => {
+    if (isDeleting) {
+      onDelete(task.id);
+    }
+  };
+
   return (
-    <div className={`${styles.taskItem} ${task.completed ? styles.completed : ''}`}>
+    <div
+      className={`${styles.taskItem} ${task.completed ? styles.completed : ''} ${isDeleting ? styles.deleting : ''}`}
+      onAnimationEnd={handleAnimationEnd}
+    >
       <button
         className={`${styles.checkbox} ${task.completed ? styles.checked : ''}`}
         onClick={() => onToggle(task.id)}
@@ -22,11 +37,15 @@ export const TaskItem = memo(function TaskItem({ task, onToggle, onDelete }: Tas
           </svg>
         )}
       </button>
-      <span className={styles.title}>{task.title}</span>
+      <span className={styles.title}>
+        <span className={styles.titleText}>{task.title}</span>
+        <span className={styles.strikethrough} />
+      </span>
       <button
         className={styles.deleteButton}
-        onClick={() => onDelete(task.id)}
+        onClick={handleDelete}
         aria-label="Delete task"
+        disabled={isDeleting}
       >
         ×
       </button>
