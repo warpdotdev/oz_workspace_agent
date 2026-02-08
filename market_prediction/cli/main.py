@@ -25,6 +25,7 @@ from storage.models import Database, Direction, MagnitudeBucket
 from data.coingecko import DataIngestionService, CoinGeckoClient, DEFAULT_COINS
 from strategies.base import ALL_STRATEGIES, get_strategy
 from verification.engine import VerificationEngine
+from verification.calibration import CalibrationAnalyzer
 
 
 def cmd_predict(args):
@@ -230,6 +231,22 @@ def cmd_prices(args):
     db.close()
 
 
+def cmd_calibration(args):
+    """Show rigorous calibration metrics - Brier score, ECE, statistical significance"""
+    db = Database(args.db)
+    analyzer = CalibrationAnalyzer(db)
+    
+    if args.strategy:
+        # Single strategy detailed report
+        report = analyzer.generate_calibration_report(args.strategy, days=args.days)
+        analyzer.print_calibration_report(report)
+    else:
+        # Comparison of all strategies
+        analyzer.print_comparison_summary(days=args.days)
+    
+    db.close()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Market Prediction Engine CLI',
@@ -294,6 +311,15 @@ Examples:
     p_prices.add_argument('--symbols', type=str,
                          help='Comma-separated symbols')
     p_prices.set_defaults(func=cmd_prices)
+    
+    # calibration command (the rigorous truth)
+    p_calib = subparsers.add_parser('calibration', 
+                                    help='Show rigorous calibration metrics (Brier score, p-values)')
+    p_calib.add_argument('--days', type=int, default=30,
+                        help='Days to analyze (default: 30)')
+    p_calib.add_argument('--strategy', type=str,
+                        help='Specific strategy for detailed report (optional)')
+    p_calib.set_defaults(func=cmd_calibration)
     
     args = parser.parse_args()
     

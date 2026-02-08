@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from storage.models import Database, Direction, MagnitudeBucket
 from verification.engine import VerificationEngine
+from verification.calibration import CalibrationAnalyzer
 from data.coingecko import DataIngestionService
 
 
@@ -175,6 +176,12 @@ DASHBOARD_HTML = """
                 <div class="stat" id="best-strategy">--</div>
                 <div class="stat-label" id="best-strategy-accuracy">--</div>
             </div>
+            
+            <div class="card">
+                <h2>Statistical Significance</h2>
+                <div class="stat" id="significance-status">--</div>
+                <div class="stat-label" id="significance-detail">p-value pending</div>
+            </div>
         </div>
         
         <div class="grid">
@@ -242,6 +249,21 @@ DASHBOARD_HTML = """
                     document.getElementById('best-strategy').textContent = best.name;
                     document.getElementById('best-strategy-accuracy').textContent = 
                         (best.direction_accuracy * 100).toFixed(1) + '% accuracy';
+                }
+                
+                // Statistical significance
+                if (data.calibration && data.calibration.any_significant) {
+                    const sigEl = document.getElementById('significance-status');
+                    sigEl.textContent = '✅ Signal';
+                    sigEl.className = 'stat';
+                    document.getElementById('significance-detail').textContent = 
+                        `${data.calibration.significant_strategies.join(', ')} beating random (p<0.05)`;
+                } else if (data.calibration) {
+                    const sigEl = document.getElementById('significance-status');
+                    sigEl.textContent = '⚠️ Unproven';
+                    sigEl.className = 'stat warning';
+                    document.getElementById('significance-detail').textContent = 
+                        'No strategy has proven edge yet';
                 }
                 
                 // Leaderboard
@@ -385,22 +407,30 @@ def dashboard_data():
     """API endpoint for dashboard data"""
     db = Database(DB_PATH)
     engine = VerificationEngine(db)
+    calibration_analyzer = CalibrationAnalyzer(db)
     
     # Get summary
     summary = engine.get_verification_summary(days=30)
     
-    # Get leaderboard data
+    # Get calibration reports for all strategies
+    calibration_reports = calibration_analyzer.compare_strategies(days=30)
+    
+    # Get leaderboard data with calibration metrics
     leaderboard = []
     for name, metrics in sorted(
         summary.by_strategy.items(),
         key=lambda x: x[1].get('direction_accuracy', 0),
         reverse=True
     ):
+        cal_report = calibration_reports.get(name)
         leaderboard.append({
             'name': name,
             'direction_accuracy': metrics.get('direction_accuracy', 0),
             'magnitude_accuracy': metrics.get('magnitude_accuracy', 0),
-            'total': metrics.get('total', 0)
+            'total': metrics.get('total', 0),
+            'brier_score': cal_report.brier_score if cal_report else None,
+            'p_value': cal_report.p_value if cal_report else None,
+            'is_significant': cal_report.is_significant if cal_report else False
         })
     
     # Get recent predictions
@@ -424,6 +454,12 @@ def dashboard_data():
     # Build chart data - rolling accuracy by strategy
     chart_data = build_chart_data(db)
     
+    # Build calibration summary
+    significant_strategies = [
+        name for name, report in calibration_reports.items()
+        if report.is_significant and report.beats_random
+    ]
+    
     db.close()
     
     return jsonify({
@@ -435,7 +471,11 @@ def dashboard_data():
         },
         'leaderboard': leaderboard,
         'predictions': predictions,
-        'chart_data': chart_data
+        'chart_data': chart_data,
+        'calibration': {
+            'any_significant': len(significant_strategies) > 0,
+            'significant_strategies': significant_strategies
+        }
     })
 
 
