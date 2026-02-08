@@ -165,8 +165,7 @@ class Database:
             CREATE INDEX IF NOT EXISTS idx_prices_symbol_time ON price_history(symbol, timestamp);
             CREATE INDEX IF NOT EXISTS idx_predictions_strategy ON predictions(strategy_name);
             CREATE INDEX IF NOT EXISTS idx_predictions_target ON predictions(target_date);
-            CREATE INDEX IF NOT EXISTS idx_predictions_unverified ON predictions(id) 
-                WHERE id NOT IN (SELECT prediction_id FROM verification_results);
+            CREATE INDEX IF NOT EXISTS idx_verification_prediction ON verification_results(prediction_id);
         """)
         self.conn.commit()
     

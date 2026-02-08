@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from storage.models import Database, Direction, MagnitudeBucket
 from data.coingecko import DataIngestionService, CoinGeckoClient, DEFAULT_COINS
 from strategies.base import ALL_STRATEGIES, get_strategy
-from verification.engine import VerificationEngine
+from verification.engine import VerificationEngine, Backtester
 
 
 def cmd_predict(args):
@@ -230,6 +230,40 @@ def cmd_prices(args):
     db.close()
 
 
+def cmd_backtest_split(args):
+    """Run train/test split backtest - the rigorous way"""
+    db = Database(args.db)
+    data_service = DataIngestionService(db)
+    
+    symbol = args.symbol
+    
+    # First, ensure we have enough historical data
+    print(f"\n📊 Fetching historical data for {symbol}...")
+    data_service.fetch_and_store_historical(symbol, days=args.days + 30)
+    
+    # Run the backtest
+    backtester = Backtester(db, data_service)
+    results = backtester.run_train_test_backtest(
+        symbol=symbol,
+        total_days=args.days,
+        train_ratio=args.train_ratio
+    )
+    
+    db.close()
+    return results
+
+
+def cmd_stats(args):
+    """Show comprehensive strategy statistics"""
+    db = Database(args.db)
+    engine = VerificationEngine(db)
+    
+    # Use the enhanced leaderboard with all stats
+    engine.print_leaderboard(days=args.days, verbose=True)
+    
+    db.close()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Market Prediction Engine CLI',
@@ -240,8 +274,10 @@ Examples:
   python -m cli.main predict --days-ahead 7    # Predict for 7 days ahead  
   python -m cli.main verify                     # Verify pending predictions
   python -m cli.main leaderboard               # Show strategy rankings
+  python -m cli.main stats                      # Show stats with p-values, Brier scores
   python -m cli.main history --limit 20        # Show last 20 predictions
   python -m cli.main backfill --days 90        # Backfill 90 days of data
+  python -m cli.main backtest-split            # Run train/test split backtest
   python -m cli.main prices                     # Show current prices
         """
     )
@@ -294,6 +330,23 @@ Examples:
     p_prices.add_argument('--symbols', type=str,
                          help='Comma-separated symbols')
     p_prices.set_defaults(func=cmd_prices)
+    
+    # backtest-split command (train/test split)
+    p_btsplit = subparsers.add_parser('backtest-split', 
+                                      help='Run backtest with train/test split (rigorous)')
+    p_btsplit.add_argument('--symbol', type=str, default='bitcoin',
+                          help='Symbol to backtest (default: bitcoin)')
+    p_btsplit.add_argument('--days', type=int, default=90,
+                          help='Total days of data to use (default: 90)')
+    p_btsplit.add_argument('--train-ratio', type=float, default=0.6,
+                          help='Train/test split ratio (default: 0.6 = 60%% train)')
+    p_btsplit.set_defaults(func=cmd_backtest_split)
+    
+    # stats command (comprehensive statistics)
+    p_stats = subparsers.add_parser('stats', help='Show comprehensive strategy statistics')
+    p_stats.add_argument('--days', type=int, default=30,
+                        help='Days to look back (default: 30)')
+    p_stats.set_defaults(func=cmd_stats)
     
     args = parser.parse_args()
     
