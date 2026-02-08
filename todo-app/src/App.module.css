@@ -1,0 +1,54 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 16px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #2d3436;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.checkIcon {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.main {
+  width: 100%;
+  max-width: 480px;
+}
+
+.taskSection {
+  margin-top: 24px;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 32px 16px;
+  }
+  
+  .header {
+    margin-bottom: 24px;
+  }
+}
