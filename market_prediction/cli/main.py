@@ -9,6 +9,8 @@ Commands:
   backtest    Run backtests on historical data
   status      Show current predictions and strategy leaderboard
   prices      Show recent prices
+  train-test  Run train/test split backtest (out-of-sample validation)
+  analyze     Deep statistical analysis - significance, calibration, train/test
 """
 
 import argparse
@@ -26,6 +28,14 @@ from strategies.base import get_all_strategies, get_strategy
 from backtesting.backtest import Backtester
 from backtesting.train_test import TrainTestBacktester
 from verification.verifier import Verifier
+from verification.metrics import (
+    calculate_calibration,
+    calculate_significance,
+    train_test_split_backtest,
+    print_calibration_report,
+    print_significance_report,
+    print_train_test_report
+)
 
 
 DEFAULT_DB_PATH = "market_predictions.db"
@@ -286,6 +296,89 @@ def cmd_train_test(args):
     )
     
     backtester.print_comparison(results)
+    
+    db.close()
+
+
+def cmd_analyze(args):
+    """
+    Deep statistical analysis of prediction performance.
+    
+    This is where the truth lives - are we actually beating random?
+    """
+    db = Database(args.db)
+    
+    strategy_name = args.strategy
+    
+    if strategy_name:
+        predictions = db.get_predictions_by_strategy(strategy_name, verified_only=True)
+        strategies = [strategy_name] if predictions else []
+    else:
+        # Get all strategies
+        stats = db.get_strategy_stats()
+        strategies = [s.strategy for s in stats if s.verified_predictions > 0]
+        predictions = []
+        for s in strategies:
+            predictions.extend(db.get_predictions_by_strategy(s, verified_only=True))
+    
+    if not predictions:
+        print("No verified predictions to analyze.")
+        print("Run 'predict' and wait 24h, then run 'verify'.")
+        db.close()
+        return
+    
+    print("\n" + "=" * 70)
+    print("DEEP ANALYSIS - THE TRUTH ABOUT OUR PREDICTIONS")
+    print("=" * 70)
+    
+    # Per-strategy analysis
+    for strat in strategies:
+        strat_preds = [p for p in predictions if p.strategy == strat]
+        if not strat_preds:
+            continue
+        
+        print(f"\n{'='*70}")
+        print(f"STRATEGY: {strat.upper()}")
+        print(f"{'='*70}")
+        
+        # Statistical significance
+        n_correct = sum(1 for p in strat_preds if p.direction_correct)
+        n_total = len(strat_preds)
+        sig = calculate_significance(n_correct, n_total)
+        print_significance_report(sig)
+        
+        # Confidence calibration
+        calibration = calculate_calibration(strat_preds)
+        print_calibration_report(calibration)
+        
+        # Train/test split (if enough data)
+        if len(strat_preds) >= 10:
+            split_results = train_test_split_backtest(strat_preds)
+            print_train_test_report(split_results)
+    
+    # Overall summary
+    print("\n" + "=" * 70)
+    print("OVERALL SUMMARY")
+    print("=" * 70)
+    
+    total_preds = len(predictions)
+    total_correct = sum(1 for p in predictions if p.direction_correct)
+    overall_sig = calculate_significance(total_correct, total_preds)
+    
+    print(f"\nTotal verified predictions: {total_preds}")
+    print(f"Overall accuracy: {overall_sig.accuracy:.1f}%")
+    print(f"Edge vs random: {overall_sig.edge:+.1f}%")
+    print(f"P-value: {overall_sig.p_value:.4f}")
+    
+    if overall_sig.is_significant():
+        print("\n✓ OVERALL EDGE IS STATISTICALLY SIGNIFICANT")
+    else:
+        required = overall_sig.required_n_for_significance()
+        if required != float('inf'):
+            print(f"\n✗ Need ~{required} more predictions at current edge for significance")
+        else:
+            print("\n✗ No positive edge detected")
+    
     db.close()
 
 
@@ -344,6 +437,12 @@ Examples:
 
   # View status and leaderboard
   python -m market_prediction.cli.main status
+  
+  # Run train/test split validation
+  python -m market_prediction.cli.main train-test --days 60
+  
+  # Deep statistical analysis
+  python -m market_prediction.cli.main analyze
 """
     )
     
@@ -387,6 +486,16 @@ Examples:
     train_test_parser.add_argument("--days", type=int, default=60, help="Total days of data")
     train_test_parser.add_argument("--train-ratio", type=float, default=0.7, help="Fraction for training (default: 0.7)")
     
+    # Analyze command - deep statistical analysis
+    analyze_parser = subparsers.add_parser(
+        "analyze", 
+        help="Deep statistical analysis (significance, calibration, train/test)"
+    )
+    analyze_parser.add_argument(
+        "--strategy", 
+        help="Specific strategy to analyze (default: all)"
+    )
+    
     args = parser.parse_args()
     
     if args.command is None:
@@ -401,6 +510,7 @@ Examples:
         "status": cmd_status,
         "prices": cmd_prices,
         "train-test": cmd_train_test,
+        "analyze": cmd_analyze,
     }
     
     cmd_func = commands.get(args.command)
