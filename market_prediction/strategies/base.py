@@ -344,7 +344,8 @@ class SMAStrategy(BaseStrategy):
         return sum(prices[-period:]) / period
 
 
-# Strategy registry
+# Strategy registry - base strategies only
+# Ensemble strategies are added separately to avoid circular imports
 STRATEGIES = {
     "random": RandomStrategy(),
     "momentum": MomentumStrategy(),
@@ -359,5 +360,19 @@ def get_strategy(name: str) -> Optional[BaseStrategy]:
 
 
 def get_all_strategies() -> list[BaseStrategy]:
-    """Get all available strategies."""
+    """Get all available strategies (base strategies only)."""
     return list(STRATEGIES.values())
+
+
+def get_all_strategies_with_ensemble() -> list[BaseStrategy]:
+    """
+    Get all strategies including ensemble strategies.
+    
+    Note: Ensemble strategies are imported here to avoid circular imports.
+    """
+    from strategies.ensemble import EnsembleStrategy, AdaptiveEnsembleStrategy
+    
+    all_strategies = list(STRATEGIES.values())
+    all_strategies.append(EnsembleStrategy())
+    all_strategies.append(AdaptiveEnsembleStrategy())
+    return all_strategies

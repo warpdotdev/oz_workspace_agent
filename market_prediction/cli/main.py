@@ -157,40 +157,79 @@ def cmd_backtest(args):
     db = Database(args.db)
     backtester = Backtester(db)
     
-    asset = args.asset
     days = args.days
+    include_ensemble = args.ensemble
     
     end_date = datetime.utcnow()
     start_date = end_date - timedelta(days=days)
     
-    # Check data availability
-    prices = db.get_prices(asset, start_date - timedelta(days=30), end_date)
-    
-    if len(prices) < 100:
-        print(f"Not enough data for backtest. Run 'fetch' command first.")
-        print(f"  Have: {len(prices)} price points")
-        print(f"  Need: at least 100")
-        db.close()
-        return
-    
-    print(f"Running backtest for {asset}")
-    print(f"Period: {start_date.date()} to {end_date.date()}")
-    print(f"Data points: {len(prices)}")
-    
-    # Run all strategies
-    summaries = backtester.run_all_strategies(
-        asset=asset,
-        start_date=start_date,
-        end_date=end_date,
-        prediction_interval_hours=24
-    )
-    
-    backtester.print_comparison(summaries)
-    
-    # Output JSON if requested
-    if args.json:
-        output = {name: s.to_dict() for name, s in summaries.items()}
-        print("\n" + json.dumps(output, indent=2))
+    # Handle multi-asset if specified
+    if args.multi:
+        assets = args.multi.split(",")
+        print(f"Running multi-asset backtest for: {', '.join(assets)}")
+        print(f"Period: {start_date.date()} to {end_date.date()}")
+        if include_ensemble:
+            print("Including ensemble strategies")
+        
+        # Verify data for all assets
+        for asset in assets:
+            prices = db.get_prices(asset, start_date - timedelta(days=30), end_date)
+            if len(prices) < 100:
+                print(f"\nWarning: {asset} has insufficient data ({len(prices)} points)")
+                print(f"Run: python -m cli.main fetch --assets {asset} --days {days + 30}")
+        
+        # Run multi-asset backtest
+        results = backtester.run_multi_asset(
+            assets=assets,
+            start_date=start_date,
+            end_date=end_date,
+            prediction_interval_hours=24,
+            include_ensemble=include_ensemble
+        )
+        
+        backtester.print_multi_asset_comparison(results)
+        
+        if args.json:
+            output = {
+                asset: {name: s.to_dict() for name, s in summaries.items()}
+                for asset, summaries in results.items()
+            }
+            print("\n" + json.dumps(output, indent=2))
+    else:
+        # Single asset backtest
+        asset = args.asset
+        
+        # Check data availability
+        prices = db.get_prices(asset, start_date - timedelta(days=30), end_date)
+        
+        if len(prices) < 100:
+            print(f"Not enough data for backtest. Run 'fetch' command first.")
+            print(f"  Have: {len(prices)} price points")
+            print(f"  Need: at least 100")
+            db.close()
+            return
+        
+        print(f"Running backtest for {asset}")
+        print(f"Period: {start_date.date()} to {end_date.date()}")
+        print(f"Data points: {len(prices)}")
+        if include_ensemble:
+            print("Including ensemble strategies")
+        
+        # Run all strategies
+        summaries = backtester.run_all_strategies(
+            asset=asset,
+            start_date=start_date,
+            end_date=end_date,
+            prediction_interval_hours=24,
+            include_ensemble=include_ensemble
+        )
+        
+        backtester.print_comparison(summaries)
+        
+        # Output JSON if requested
+        if args.json:
+            output = {name: s.to_dict() for name, s in summaries.items()}
+            print("\n" + json.dumps(output, indent=2))
     
     db.close()
 
@@ -315,7 +354,9 @@ Examples:
     # Backtest command
     backtest_parser = subparsers.add_parser("backtest", help="Run backtests")
     backtest_parser.add_argument("--asset", default="bitcoin", help="Asset to backtest")
+    backtest_parser.add_argument("--multi", help="Comma-separated assets for multi-asset backtest")
     backtest_parser.add_argument("--days", type=int, default=30, help="Days to backtest")
+    backtest_parser.add_argument("--ensemble", action="store_true", help="Include ensemble strategies")
     backtest_parser.add_argument("--json", action="store_true", help="Output JSON results")
     
     # Status command
