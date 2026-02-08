@@ -170,12 +170,15 @@ class TestStrategies(unittest.TestCase):
         """Test that all strategies are available in registry."""
         strategies = get_all_strategies()
         
-        self.assertEqual(len(strategies), 4)
+        self.assertEqual(len(strategies), 7)
         names = [s.name for s in strategies]
         self.assertIn("random", names)
         self.assertIn("momentum", names)
         self.assertIn("mean_reversion", names)
         self.assertIn("sma_crossover", names)
+        self.assertIn("volatility_regime", names)
+        self.assertIn("atr", names)
+        self.assertIn("vol_breakout", names)
 
 
 class TestDatabase(unittest.TestCase):

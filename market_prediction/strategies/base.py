@@ -344,12 +344,22 @@ class SMAStrategy(BaseStrategy):
         return sum(prices[-period:]) / period
 
 
+# Import volatility strategies
+from strategies.volatility import (
+    VolatilityRegimeStrategy,
+    ATRStrategy,
+    VolatilityBreakoutStrategy
+)
+
 # Strategy registry
 STRATEGIES = {
     "random": RandomStrategy(),
     "momentum": MomentumStrategy(),
     "mean_reversion": MeanReversionStrategy(),
     "sma_crossover": SMAStrategy(),
+    "volatility_regime": VolatilityRegimeStrategy(),
+    "atr": ATRStrategy(),
+    "vol_breakout": VolatilityBreakoutStrategy(),
 }
 
 

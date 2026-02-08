@@ -24,6 +24,7 @@ from models import Database, Direction, Magnitude
 from data.coingecko import CoinGeckoClient
 from strategies.base import get_all_strategies, get_strategy
 from backtesting.backtest import Backtester
+from backtesting.train_test import TrainTestBacktester
 from verification.verifier import Verifier
 
 
@@ -248,6 +249,46 @@ def cmd_status(args):
     db.close()
 
 
+def cmd_train_test(args):
+    """Run train/test split backtest for out-of-sample validation."""
+    db = Database(args.db)
+    
+    asset = args.asset
+    days = args.days
+    train_ratio = args.train_ratio
+    
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=days)
+    
+    # Check data availability
+    prices = db.get_prices(asset, start_date - timedelta(days=30), end_date)
+    
+    if len(prices) < 200:
+        print(f"Not enough data for train/test split.")
+        print(f"  Have: {len(prices)} price points")
+        print(f"  Need: at least 200")
+        print(f"  Run: fetch --days {days + 30}")
+        db.close()
+        return
+    
+    print(f"Running train/test split backtest for {asset}")
+    print(f"Period: {start_date.date()} to {end_date.date()} ({days} days)")
+    print(f"Split: {int(train_ratio*100)}% train / {int((1-train_ratio)*100)}% test")
+    print(f"Data points: {len(prices)}")
+    
+    backtester = TrainTestBacktester(db, train_ratio=train_ratio)
+    
+    results = backtester.run_all_strategies(
+        asset=asset,
+        start_date=start_date,
+        end_date=end_date,
+        prediction_interval_hours=24
+    )
+    
+    backtester.print_comparison(results)
+    db.close()
+
+
 def cmd_prices(args):
     """Show recent prices."""
     db = Database(args.db)
@@ -340,6 +381,12 @@ Examples:
     prices_parser.add_argument("--asset", default="bitcoin", help="Asset to show")
     prices_parser.add_argument("--hours", type=int, default=48, help="Hours of price history")
     
+    # Train/test split command
+    train_test_parser = subparsers.add_parser("train-test", help="Run train/test split backtest")
+    train_test_parser.add_argument("--asset", default="bitcoin", help="Asset to test")
+    train_test_parser.add_argument("--days", type=int, default=60, help="Total days of data")
+    train_test_parser.add_argument("--train-ratio", type=float, default=0.7, help="Fraction for training (default: 0.7)")
+    
     args = parser.parse_args()
     
     if args.command is None:
@@ -353,6 +400,7 @@ Examples:
         "backtest": cmd_backtest,
         "status": cmd_status,
         "prices": cmd_prices,
+        "train-test": cmd_train_test,
     }
     
     cmd_func = commands.get(args.command)
