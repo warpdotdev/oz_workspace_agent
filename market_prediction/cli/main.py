@@ -177,20 +177,31 @@ def cmd_backtest(args):
     print(f"Period: {start_date.date()} to {end_date.date()}")
     print(f"Data points: {len(prices)}")
     
-    # Run all strategies
-    summaries = backtester.run_all_strategies(
-        asset=asset,
-        start_date=start_date,
-        end_date=end_date,
-        prediction_interval_hours=24
-    )
-    
-    backtester.print_comparison(summaries)
-    
-    # Output JSON if requested
-    if args.json:
-        output = {name: s.to_dict() for name, s in summaries.items()}
-        print("\n" + json.dumps(output, indent=2))
+    # Run train/test validation if requested
+    if args.validate:
+        print("\nRunning train/test split validation...")
+        results = backtester.run_train_test_split(
+            asset=asset,
+            total_days=days,
+            train_ratio=args.train_ratio,
+            prediction_interval_hours=24
+        )
+        backtester.print_train_test_comparison(results)
+    else:
+        # Run all strategies
+        summaries = backtester.run_all_strategies(
+            asset=asset,
+            start_date=start_date,
+            end_date=end_date,
+            prediction_interval_hours=24
+        )
+        
+        backtester.print_comparison(summaries)
+        
+        # Output JSON if requested
+        if args.json:
+            output = {name: s.to_dict() for name, s in summaries.items()}
+            print("\n" + json.dumps(output, indent=2))
     
     db.close()
 
@@ -317,6 +328,8 @@ Examples:
     backtest_parser.add_argument("--asset", default="bitcoin", help="Asset to backtest")
     backtest_parser.add_argument("--days", type=int, default=30, help="Days to backtest")
     backtest_parser.add_argument("--json", action="store_true", help="Output JSON results")
+    backtest_parser.add_argument("--validate", action="store_true", help="Run train/test split validation")
+    backtest_parser.add_argument("--train-ratio", type=float, default=0.67, help="Train/test split ratio (default: 0.67)")
     
     # Status command
     status_parser = subparsers.add_parser("status", help="Show predictions and leaderboard")

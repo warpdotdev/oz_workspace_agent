@@ -258,6 +258,115 @@ class Backtester:
                     print(f"  ✓ {name}: +{diff:.1f}% over random")
 
 
+    def run_train_test_split(
+        self,
+        asset: str,
+        total_days: int = 60,
+        train_ratio: float = 0.67,
+        prediction_interval_hours: int = 24
+    ) -> dict[str, dict]:
+        """
+        Run backtest with train/test split validation.
+        
+        This is critical for detecting overfitting:
+        - Train period: optimize/observe strategy behavior
+        - Test period: validate on unseen data
+        
+        Args:
+            asset: Asset to test
+            total_days: Total days of data to use
+            train_ratio: Fraction of data for training (default: 67%)
+            prediction_interval_hours: How often to make predictions
+            
+        Returns:
+            Dict with train and test results for each strategy
+        """
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=total_days)
+        
+        # Calculate split point
+        split_days = int(total_days * train_ratio)
+        split_date = start_date + timedelta(days=split_days)
+        
+        results = {}
+        
+        for strategy in get_all_strategies():
+            # Run on training period
+            _, train_summary = self.run(
+                strategy=strategy,
+                asset=asset,
+                start_date=start_date,
+                end_date=split_date,
+                prediction_interval_hours=prediction_interval_hours
+            )
+            
+            # Run on test period (out-of-sample)
+            _, test_summary = self.run(
+                strategy=strategy,
+                asset=asset,
+                start_date=split_date,
+                end_date=end_date,
+                prediction_interval_hours=prediction_interval_hours
+            )
+            
+            results[strategy.name] = {
+                "train": train_summary,
+                "test": test_summary,
+                "overfit_detected": self._detect_overfit(train_summary, test_summary)
+            }
+        
+        return results
+    
+    def _detect_overfit(self, train: BacktestSummary, test: BacktestSummary) -> bool:
+        """
+        Detect potential overfitting by comparing train vs test performance.
+        
+        Returns True if:
+        - Train accuracy is significantly better than test (>10% drop)
+        - Test accuracy is at or below random chance (50%)
+        """
+        if train.total_predictions == 0 or test.total_predictions == 0:
+            return False
+        
+        accuracy_drop = train.direction_accuracy - test.direction_accuracy
+        test_below_random = test.direction_accuracy <= 50.0
+        
+        return accuracy_drop > 10.0 or (train.direction_accuracy > 55.0 and test_below_random)
+    
+    def print_train_test_comparison(self, results: dict[str, dict]):
+        """Print comparison of train vs test performance."""
+        print("\n" + "=" * 80)
+        print("TRAIN/TEST SPLIT VALIDATION")
+        print("=" * 80)
+        print("\nThis validates out-of-sample performance. Overfit = train looks good but test fails.")
+        print()
+        print(f"{'Strategy':<18} {'Train Acc':>10} {'Test Acc':>10} {'Δ':>8} {'Status':>12}")
+        print("-" * 80)
+        
+        for name, data in sorted(results.items(), key=lambda x: x[1]['test'].direction_accuracy, reverse=True):
+            train_acc = data['train'].direction_accuracy
+            test_acc = data['test'].direction_accuracy
+            delta = test_acc - train_acc
+            
+            if data['overfit_detected']:
+                status = "⚠️  OVERFIT"
+            elif test_acc > 52.0:  # Need > 52% to have meaningful edge with this sample size
+                status = "✓ SIGNAL?"
+            else:
+                status = "✗ NO EDGE"
+            
+            print(
+                f"{name:<18} "
+                f"{train_acc:>9.1f}% "
+                f"{test_acc:>9.1f}% "
+                f"{delta:>+7.1f}% "
+                f"{status:>12}"
+            )
+        
+        print("-" * 80)
+        print("\nKey: Test Acc > 52% with stable or improving delta = potential real edge")
+
+
 def main():
     """Run a quick backtest demo."""
     db = Database("market_predictions.db")
