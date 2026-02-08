@@ -137,7 +137,42 @@ python cli.py run [-p PORT] [--debug]
 
 # Initialize database
 python cli.py init
+
+# Run backtest with train/test split
+python cli.py backtest -s bitcoin -d 90 --train-ratio 0.6
+
+# Run multi-asset backtest
+python cli.py backtest --multi-asset -d 90
 ```
+
+## 🔬 Backtesting (Statistical Rigor)
+
+The backtest module provides **rigorous statistical validation**:
+
+### Train/Test Split
+- Data is split into train (60%) and test (40%) periods
+- Train performance may be overfitting
+- **TEST performance is what matters** - validates out-of-sample
+
+### Statistical Significance
+- P-values calculated using binomial test
+- Significance levels: `***` p<0.001, `**` p<0.01, `*` p<0.05, `.` p<0.1
+- An edge is only "real" if p-value < 0.05 on the TEST set
+
+### Example Output
+```
+🧪 TEST SET (out-of-sample) ← THIS IS WHAT MATTERS
+──────────────────────────────────────────────────────────────────────
+Strategy                  N   Accuracy    P-value   Sig
+──────────────────────────────────────────────────────────────────────
+momentum                 35     54.3%     0.3677
+sma_crossover            35     57.1%     0.2495
+random_baseline          35     57.1%     0.2495
+```
+
+### Key Insight
+With n~35 test predictions, you need ~60%+ accuracy to achieve p<0.05.
+Small sample sizes = high variance. Don't celebrate until it's significant!
 
 ## 🌐 API Endpoints
 

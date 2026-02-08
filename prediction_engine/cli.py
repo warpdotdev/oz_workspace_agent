@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from data.models import init_db, get_session, Prediction, Outcome, StrategyStats
 from orchestrator import PredictionOrchestrator
 from verification import PredictionVerifier
+from backtest import Backtester
 
 
 def cmd_predict(args):
@@ -178,6 +179,27 @@ def cmd_init(args):
     print("✅ Database initialized!")
 
 
+def cmd_backtest(args):
+    """Run backtest with train/test split and statistical analysis."""
+    bt = Backtester()
+    
+    if args.multi_asset:
+        symbols = args.symbols.split(",") if args.symbols else None
+        bt.run_multi_asset_backtest(
+            symbols=symbols,
+            days=args.days,
+            train_ratio=args.train_ratio
+        )
+    else:
+        symbol = args.symbols.split(",")[0] if args.symbols else "bitcoin"
+        result = bt.run_backtest(
+            symbol=symbol,
+            days=args.days,
+            train_ratio=args.train_ratio
+        )
+        bt.print_results(result)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Market Prediction Engine - Predict crypto prices with multiple strategies",
@@ -225,6 +247,14 @@ Examples:
     # init command
     init_parser = subparsers.add_parser("init", help="Initialize database")
     init_parser.set_defaults(func=cmd_init)
+    
+    # backtest command
+    backtest_parser = subparsers.add_parser("backtest", help="Run backtest with train/test split")
+    backtest_parser.add_argument("-s", "--symbols", default="bitcoin", help="Asset(s) to backtest (comma-separated)")
+    backtest_parser.add_argument("-d", "--days", type=int, default=90, help="Days of historical data")
+    backtest_parser.add_argument("-r", "--train-ratio", type=float, default=0.6, help="Train/test split ratio")
+    backtest_parser.add_argument("--multi-asset", action="store_true", help="Run across multiple assets")
+    backtest_parser.set_defaults(func=cmd_backtest)
     
     args = parser.parse_args()
     
