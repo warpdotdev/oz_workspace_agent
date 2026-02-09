@@ -168,6 +168,10 @@
   transform: scale(1.1);
 }
 
+.taskItem.editing {
+  background: #f9fafb;
+}
+
 /* Delete button */
 .deleteButton {
   width: 24px;
@@ -199,11 +203,6 @@
 .editButton:disabled {
   cursor: not-allowed;
   opacity: 0.3;
-}
-
-/* Editing state */
-.taskItem.editing {
-  background: #f9fafb;
 }
 
 /* Mobile: always show action buttons */

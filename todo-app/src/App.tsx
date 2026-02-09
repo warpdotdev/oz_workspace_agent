@@ -63,7 +63,7 @@ function App() {
         <AddTaskForm onAddTask={addTask} />
         
         <div className={styles.taskSection}>
-        {tasks.length === 0 ? (
+          {tasks.length === 0 ? (
             <EmptyState />
           ) : (
             <TaskList

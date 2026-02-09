@@ -88,6 +88,7 @@ export const TaskItem = memo(function TaskItem({ task, onToggle, onEdit, onDelet
           onKeyDown={handleKeyDown}
           onBlur={saveEdit}
           maxLength={200}
+          aria-label="Edit task"
         />
       ) : (
         <span
