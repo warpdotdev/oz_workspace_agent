@@ -208,8 +208,8 @@
 
 /* Mobile: always show action buttons */
 @media (max-width: 640px) {
-  .deleteButton,
-  .editButton {
+  .editButton,
+  .deleteButton {
     opacity: 1;
   }
   

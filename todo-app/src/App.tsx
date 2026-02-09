@@ -47,10 +47,8 @@ function App() {
     setTasks((prev) => prev.filter((task) => task.id !== id));
   }, [setTasks]);
 
-  const stats = useMemo(() => {
-    const total = tasks.length;
-    const done = tasks.filter((t) => t.completed).length;
-    return { total, done };
+  const itemsLeft = useMemo(() => {
+    return tasks.filter((t) => !t.completed).length;
   }, [tasks]);
 
   return (
@@ -79,7 +77,7 @@ function App() {
 
         {tasks.length > 0 && (
           <footer className={styles.footer}>
-            {stats.total} task{stats.total !== 1 ? 's' : ''} • {stats.done} done
+            {itemsLeft} item{itemsLeft !== 1 ? 's' : ''} left
           </footer>
         )}
       </main>
