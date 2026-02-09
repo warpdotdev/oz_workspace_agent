@@ -12,16 +12,16 @@ Manage tasks on the shared Kanban board for the current room. Tasks have three s
 Run the script with a subcommand and the required arguments:
 
 ```bash
-python3 scripts/manage_task.py <base_url> <subcommand> [options]
+python3 scripts/manage_task.py <base_url> --api-key <api_key> <subcommand> [options]
 ```
 
-The `base_url` will be provided to you in your instructions (e.g. `https://oz-desktop.vercel.app`).
+The `base_url` and `api_key` will be provided to you in your instructions.
 
 ## Subcommands
 
 ### Create a task
 ```bash
-python3 scripts/manage_task.py https://oz-desktop.vercel.app create \
+python3 scripts/manage_task.py https://oz-desktop.vercel.app --api-key "<api_key>" create \
   --room-id "<room_id>" \
   --title "Implement auth middleware" \
   --description "Add JWT validation to all API routes" \
@@ -32,7 +32,7 @@ python3 scripts/manage_task.py https://oz-desktop.vercel.app create \
 
 ### Update a task
 ```bash
-python3 scripts/manage_task.py https://oz-desktop.vercel.app update \
+python3 scripts/manage_task.py https://oz-desktop.vercel.app --api-key "<api_key>" update \
   --task-id "<task_id>" \
   --status "done"
 ```
@@ -41,7 +41,7 @@ You can update any combination of: `--title`, `--description`, `--status`, `--pr
 
 ### List tasks for a room
 ```bash
-python3 scripts/manage_task.py https://oz-desktop.vercel.app list \
+python3 scripts/manage_task.py https://oz-desktop.vercel.app --api-key "<api_key>" list \
   --room-id "<room_id>"
 ```
 

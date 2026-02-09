@@ -8,9 +8,11 @@ import urllib.request
 import urllib.error
 
 
-def api_request(url: str, method: str = "GET", data: dict | None = None) -> dict:
+def api_request(url: str, method: str = "GET", data: dict | None = None, api_key: str | None = None) -> dict:
     """Make an API request and return the parsed response."""
     headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["X-Agent-Key"] = api_key
     body = json.dumps(data).encode("utf-8") if data else None
 
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
@@ -47,7 +49,7 @@ def create_task(base_url: str, args: argparse.Namespace) -> dict:
     if args.created_by:
         data["createdBy"] = args.created_by
 
-    return api_request(f"{base_url}/api/tasks", method="POST", data=data)
+    return api_request(f"{base_url}/api/agent/tasks", method="POST", data=data, api_key=args.api_key)
 
 
 def update_task(base_url: str, args: argparse.Namespace) -> dict:
@@ -67,17 +69,18 @@ def update_task(base_url: str, args: argparse.Namespace) -> dict:
     if not data:
         return {"error": "No fields to update. Provide at least one of: --title, --description, --status, --priority, --assignee-id"}
 
-    return api_request(f"{base_url}/api/tasks/{args.task_id}", method="PATCH", data=data)
+    return api_request(f"{base_url}/api/agent/tasks/{args.task_id}", method="PATCH", data=data, api_key=args.api_key)
 
 
 def list_tasks(base_url: str, args: argparse.Namespace) -> dict:
     """List all tasks for a room."""
-    return api_request(f"{base_url}/api/tasks?roomId={args.room_id}")
+    return api_request(f"{base_url}/api/agent/tasks?roomId={args.room_id}", api_key=args.api_key)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Manage tasks on the room Kanban board")
-    parser.add_argument("base_url", help="Base URL of the oz-desktop server (e.g. http://localhost:3000)")
+    parser.add_argument("base_url", help="Base URL of the oz-desktop server (e.g. https://oz-desktop.vercel.app)")
+    parser.add_argument("--api-key", required=True, help="Agent API key for authentication")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Create
