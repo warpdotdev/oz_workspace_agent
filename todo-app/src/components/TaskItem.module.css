@@ -140,9 +140,53 @@
   transform: scale(1.1);
 }
 
-/* Mobile: always show delete button */
+/* Edit button - visible on mobile, hover on desktop */
+.editButton {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #b2bec3;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 4px;
+}
+
+.taskItem:hover .editButton {
+  opacity: 1;
+}
+
+.editButton:hover {
+  color: #3b82f6;
+}
+
+/* Edit input */
+.editInput {
+  flex: 1;
+  font-size: 16px;
+  font-family: inherit;
+  color: #111827;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  padding: 4px 8px;
+  outline: none;
+  background: #ffffff;
+}
+
+.editing {
+  background: #f0f9ff;
+  border-color: #3b82f6;
+}
+
+/* Mobile: always show edit and delete buttons */
 @media (max-width: 640px) {
-  .deleteButton {
+  .deleteButton,
+  .editButton {
     opacity: 1;
   }
   
