@@ -1,0 +1,10 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "Todo app frontend (to be implemented)",
+  "private": true,
+  "scripts": {
+    "dev": "echo \"Frontend not yet implemented\"",
+    "build": "echo \"Frontend not yet implemented\""
+  }
+}
