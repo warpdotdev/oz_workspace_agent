@@ -10,11 +10,13 @@ function App() {
   const [tasks, setTasks] = useLocalStorage<Task[]>('todo-tasks', []);
 
   const addTask = useCallback((title: string) => {
+    const now = Date.now();
     const newTask: Task = {
       id: crypto.randomUUID(),
       title,
       completed: false,
-      createdAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
     };
     setTasks((prev) => [newTask, ...prev]);
   }, [setTasks]);
@@ -22,7 +24,15 @@ function App() {
   const toggleTask = useCallback((id: string) => {
     setTasks((prev) =>
       prev.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
+        task.id === id ? { ...task, completed: !task.completed, updatedAt: Date.now() } : task
+      )
+    );
+  }, [setTasks]);
+
+  const editTask = useCallback((id: string, newTitle: string) => {
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === id ? { ...task, title: newTitle, updatedAt: Date.now() } : task
       )
     );
   }, [setTasks]);
@@ -56,6 +66,7 @@ function App() {
               tasks={tasks}
               onToggle={toggleTask}
               onDelete={deleteTask}
+              onEdit={editTask}
             />
           )}
         </div>
