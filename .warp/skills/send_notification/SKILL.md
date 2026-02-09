@@ -27,7 +27,7 @@ python3 scripts/send_notification.py <base_url> \
 
 Notify about a completed task:
 ```bash
-python3 scripts/send_notification.py http://localhost:3000 \
+python3 scripts/send_notification.py https://oz-desktop.vercel.app \
   --room-id "abc123" \
   --agent-id "agent456" \
   --message "Finished implementing the auth middleware. PR is ready for review."
@@ -35,7 +35,7 @@ python3 scripts/send_notification.py http://localhost:3000 \
 
 Notify about an error:
 ```bash
-python3 scripts/send_notification.py http://localhost:3000 \
+python3 scripts/send_notification.py https://oz-desktop.vercel.app \
   --room-id "abc123" \
   --agent-id "agent456" \
   --message "Build failed: missing dependency 'lodash'. Needs human intervention."

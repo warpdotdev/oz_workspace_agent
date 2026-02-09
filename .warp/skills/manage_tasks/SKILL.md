@@ -15,13 +15,13 @@ Run the script with a subcommand and the required arguments:
 python3 scripts/manage_task.py <base_url> <subcommand> [options]
 ```
 
-The `base_url` will be provided to you in your instructions (e.g. `http://localhost:3000`).
+The `base_url` will be provided to you in your instructions (e.g. `https://oz-desktop.vercel.app`).
 
 ## Subcommands
 
 ### Create a task
 ```bash
-python3 scripts/manage_task.py http://localhost:3000 create \
+python3 scripts/manage_task.py https://oz-desktop.vercel.app create \
   --room-id "<room_id>" \
   --title "Implement auth middleware" \
   --description "Add JWT validation to all API routes" \
@@ -32,7 +32,7 @@ python3 scripts/manage_task.py http://localhost:3000 create \
 
 ### Update a task
 ```bash
-python3 scripts/manage_task.py http://localhost:3000 update \
+python3 scripts/manage_task.py https://oz-desktop.vercel.app update \
   --task-id "<task_id>" \
   --status "done"
 ```
@@ -41,7 +41,7 @@ You can update any combination of: `--title`, `--description`, `--status`, `--pr
 
 ### List tasks for a room
 ```bash
-python3 scripts/manage_task.py http://localhost:3000 list \
+python3 scripts/manage_task.py https://oz-desktop.vercel.app list \
   --room-id "<room_id>"
 ```
 
