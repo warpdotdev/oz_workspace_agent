@@ -140,6 +140,23 @@
   transform: scale(1.1);
 }
 
+/* Edit input */
+.editInput {
+  flex: 1;
+  font-size: 16px;
+  font-family: inherit;
+  color: #111827;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  padding: 4px 8px;
+  outline: none;
+  background: #ffffff;
+}
+
+.editing {
+  background: #f0f9ff;
+}
+
 /* Mobile: always show delete button */
 @media (max-width: 640px) {
   .deleteButton {

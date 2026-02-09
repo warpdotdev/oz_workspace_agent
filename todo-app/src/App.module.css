@@ -43,6 +43,13 @@
   color: #6b7280;
 }
 
+.noResults {
+  text-align: center;
+  padding: 32px 16px;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
 @media (max-width: 640px) {
   .container {
     padding: 32px 16px;

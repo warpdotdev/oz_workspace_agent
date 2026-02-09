@@ -1,13 +1,15 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { Task } from './types/task';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { AddTaskForm } from './components/AddTaskForm';
 import { TaskList } from './components/TaskList';
 import { EmptyState } from './components/EmptyState';
+import { TodoFilters, type FilterType } from './components/TodoFilters';
 import styles from './App.module.css';
 
 function App() {
   const [tasks, setTasks] = useLocalStorage<Task[]>('todo-tasks', []);
+  const [filter, setFilter] = useState<FilterType>('all');
 
   const addTask = useCallback((title: string) => {
     const newTask: Task = {
@@ -31,11 +33,28 @@ function App() {
     setTasks((prev) => prev.filter((task) => task.id !== id));
   }, [setTasks]);
 
-  const stats = useMemo(() => {
-    const total = tasks.length;
-    const done = tasks.filter((t) => t.completed).length;
-    return { total, done };
+  const editTask = useCallback((id: string, title: string) => {
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === id ? { ...task, title } : task
+      )
+    );
+  }, [setTasks]);
+
+  const itemsLeft = useMemo(() => {
+    return tasks.filter((t) => !t.completed).length;
   }, [tasks]);
+
+  const filteredTasks = useMemo(() => {
+    switch (filter) {
+      case 'active':
+        return tasks.filter((t) => !t.completed);
+      case 'completed':
+        return tasks.filter((t) => t.completed);
+      default:
+        return tasks;
+    }
+  }, [tasks, filter]);
 
   return (
     <div className={styles.container}>
@@ -51,19 +70,26 @@ function App() {
         <div className={styles.taskSection}>
           {tasks.length === 0 ? (
             <EmptyState />
+          ) : filteredTasks.length === 0 ? (
+            <div className={styles.noResults}>
+              No {filter} tasks
+            </div>
           ) : (
             <TaskList
-              tasks={tasks}
+              tasks={filteredTasks}
               onToggle={toggleTask}
               onDelete={deleteTask}
+              onEdit={editTask}
             />
           )}
         </div>
 
         {tasks.length > 0 && (
-          <footer className={styles.footer}>
-            {stats.total} task{stats.total !== 1 ? 's' : ''} • {stats.done} done
-          </footer>
+          <TodoFilters
+            currentFilter={filter}
+            onFilterChange={setFilter}
+            itemsLeft={itemsLeft}
+          />
         )}
       </main>
     </div>

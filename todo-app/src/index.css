@@ -31,3 +31,49 @@ button {
 :focus:not(:focus-visible) {
   outline: none;
 }
+
+/* Filter controls */
+.filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.items-left {
+  color: #6b7280;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.filter-btn {
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.filter-btn:hover {
+  color: #1a1a1a;
+  background: #f3f4f6;
+}
+
+.filter-btn.active {
+  color: #1a1a1a;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
