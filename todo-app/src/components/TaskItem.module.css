@@ -65,8 +65,8 @@
 }
 
 .checkbox.checked {
-  background: #10b981;
-  border-color: #10b981;
+  background: #3b82f6;
+  border-color: #3b82f6;
   animation: checkBounce 0.3s ease;
 }
 
@@ -96,7 +96,7 @@
 }
 
 .completed .titleText {
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 /* Animated strikethrough line */
@@ -105,7 +105,7 @@
   left: 0;
   top: 50%;
   height: 1.5px;
-  background: #6b7280;
+  background: #9ca3af;
   width: 0;
   transition: width 0.2s ease-out;
 }
