@@ -8,7 +8,11 @@
     "frontend"
   ],
   "scripts": {
+    "dev": "concurrently --names backend,frontend --prefix-colors blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
