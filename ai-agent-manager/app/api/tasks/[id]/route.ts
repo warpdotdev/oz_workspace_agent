@@ -1,23 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
-import { z } from 'zod'
+import { UpdateTaskSchema, isValidStatusTransition } from '@/lib/validations/task'
+import { shouldRequireReview, recordOverride, recordRetry } from '@/lib/trust-metrics'
 
-const updateTaskSchema = z.object({
-  title: z.string().min(1, 'Title is required').optional(),
-  description: z.string().optional().nullable(),
-  status: z.enum(['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'CANCELLED']).optional(),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
-  projectId: z.string().optional().nullable(),
-  assigneeId: z.string().optional().nullable(),
-  agentId: z.string().optional().nullable(),
-  dueDate: z.string().datetime().optional().nullable(),
-})
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+/**
+ * GET /api/tasks/[id]
+ * Get a single task by ID with ownership validation
+ */
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await auth()
     if (!session?.user?.id) {
@@ -25,10 +20,53 @@ export async function PATCH(
     }
 
     const { id } = await params
-    const body = await request.json()
-    const validatedData = updateTaskSchema.parse(body)
 
-    // Verify task ownership
+    const task = await db.task.findFirst({
+      where: {
+        id,
+        createdById: session.user.id,
+      },
+      include: {
+        project: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true, email: true, image: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
+        agent: { select: { id: true, name: true, type: true, status: true } },
+        reviewedBy: { select: { id: true, name: true, email: true } },
+      },
+    })
+
+    if (!task) {
+      return NextResponse.json(
+        { error: 'Task not found or access denied' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json(task)
+  } catch (error) {
+    console.error('GET /api/tasks/[id] error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * PATCH /api/tasks/[id]
+ * Update a task with status transition validation and trust tracking
+ * Tracks overrides and retries for trust metrics
+ */
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id } = await params
+
+    // Check task exists and belongs to user
     const existingTask = await db.task.findFirst({
       where: {
         id,
@@ -43,13 +81,46 @@ export async function PATCH(
       )
     }
 
-    // Verify project ownership if projectId is being updated
-    if (validatedData.projectId) {
+    const body = await request.json()
+    const parsed = UpdateTaskSchema.safeParse(body)
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', details: parsed.error.flatten() },
+        { status: 400 }
+      )
+    }
+
+    const updateData = parsed.data
+
+    // Validate status transition if status is being changed
+    if (updateData.status && updateData.status !== existingTask.status) {
+      if (!isValidStatusTransition(existingTask.status, updateData.status)) {
+        return NextResponse.json(
+          {
+            error: 'Invalid status transition',
+            details: {
+              currentStatus: existingTask.status,
+              requestedStatus: updateData.status,
+            },
+          },
+          { status: 400 }
+        )
+      }
+
+      // Track retry attempts for velocity metric
+      if (
+        existingTask.status === 'CANCELLED' &&
+        updateData.status === 'TODO'
+      ) {
+        await recordRetry(id)
+      }
+    }
+
+    // Validate project if being updated
+    if (updateData.projectId) {
       const project = await db.project.findFirst({
-        where: {
-          id: validatedData.projectId,
-          userId: session.user.id,
-        },
+        where: { id: updateData.projectId, userId: session.user.id },
       })
       if (!project) {
         return NextResponse.json(
@@ -59,13 +130,10 @@ export async function PATCH(
       }
     }
 
-    // Verify agent ownership if agentId is being updated
-    if (validatedData.agentId) {
+    // Validate agent if being updated
+    if (updateData.agentId) {
       const agent = await db.agent.findFirst({
-        where: {
-          id: validatedData.agentId,
-          userId: session.user.id,
-        },
+        where: { id: updateData.agentId, userId: session.user.id },
       })
       if (!agent) {
         return NextResponse.json(
@@ -75,68 +143,75 @@ export async function PATCH(
       }
     }
 
-    const updateData: Record<string, unknown> = { ...validatedData }
-    if (validatedData.dueDate !== undefined) {
-      updateData.dueDate = validatedData.dueDate ? new Date(validatedData.dueDate) : null
+    // Handle override tracking - trust calibration feature
+    if (updateData.wasOverridden) {
+      await recordOverride(
+        id,
+        session.user.id,
+        updateData.reviewNotes ?? undefined
+      )
+    }
+
+    // Auto-flag for review if confidence changes to low value
+    let computedRequiresReview = updateData.requiresReview
+    if (updateData.confidenceScore !== undefined) {
+      computedRequiresReview =
+        updateData.requiresReview ?? shouldRequireReview(updateData.confidenceScore)
+    }
+
+    // Build update payload
+    const updatePayload: Record<string, unknown> = {}
+    
+    if (updateData.title !== undefined) updatePayload.title = updateData.title
+    if (updateData.description !== undefined) updatePayload.description = updateData.description
+    if (updateData.status !== undefined) updatePayload.status = updateData.status
+    if (updateData.priority !== undefined) updatePayload.priority = updateData.priority
+    if (updateData.projectId !== undefined) updatePayload.projectId = updateData.projectId
+    if (updateData.assigneeId !== undefined) updatePayload.assigneeId = updateData.assigneeId
+    if (updateData.agentId !== undefined) updatePayload.agentId = updateData.agentId
+    if (updateData.dueDate !== undefined) {
+      updatePayload.dueDate = updateData.dueDate ? new Date(updateData.dueDate) : null
+    }
+    
+    // Trust fields
+    if (updateData.confidenceScore !== undefined) updatePayload.confidenceScore = updateData.confidenceScore
+    if (updateData.reasoningLog !== undefined) updatePayload.reasoningLog = updateData.reasoningLog
+    if (updateData.executionSteps !== undefined) updatePayload.executionSteps = updateData.executionSteps
+    if (computedRequiresReview !== undefined) updatePayload.requiresReview = computedRequiresReview
+    if (updateData.reviewNotes !== undefined) updatePayload.reviewNotes = updateData.reviewNotes
+
+    // Track when task starts for retry velocity
+    if (updateData.status === 'IN_PROGRESS' && !existingTask.firstAttemptAt) {
+      updatePayload.firstAttemptAt = new Date()
     }
 
     const task = await db.task.update({
       where: { id },
-      data: updateData,
+      data: updatePayload,
       include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        assignee: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-          },
-        },
-        agent: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-            status: true,
-          },
-        },
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        project: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true, email: true, image: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
+        agent: { select: { id: true, name: true, type: true, status: true } },
+        reviewedBy: { select: { id: true, name: true, email: true } },
       },
     })
 
-    return NextResponse.json({ task })
+    return NextResponse.json(task)
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      )
-    }
-
-    console.error('Error updating task:', error)
+    console.error('PATCH /api/tasks/[id] error:', error)
     return NextResponse.json(
-      { error: 'Failed to update task' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+/**
+ * DELETE /api/tasks/[id]
+ * Delete a task with ownership validation
+ */
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await auth()
     if (!session?.user?.id) {
@@ -145,7 +220,7 @@ export async function DELETE(
 
     const { id } = await params
 
-    // Verify task ownership
+    // Check task exists and belongs to user
     const existingTask = await db.task.findFirst({
       where: {
         id,
@@ -164,11 +239,11 @@ export async function DELETE(
       where: { id },
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, deletedId: id })
   } catch (error) {
-    console.error('Error deleting task:', error)
+    console.error('DELETE /api/tasks/[id] error:', error)
     return NextResponse.json(
-      { error: 'Failed to delete task' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
-import { z } from 'zod'
+import { Prisma } from '@prisma/client'
+import { CreateTaskSchema, TaskQuerySchema } from '@/lib/validations/task'
+import { shouldRequireReview } from '@/lib/trust-metrics'
 
-const createTaskSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().optional(),
-  status: z.enum(['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'CANCELLED']).default('TODO'),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
-  projectId: z.string().optional(),
-  assigneeId: z.string().optional(),
-  agentId: z.string().optional(),
-  dueDate: z.string().datetime().optional(),
-})
-
+/**
+ * GET /api/tasks
+ * List tasks with filtering and pagination
+ * Ownership-based access control: users can only see their own tasks
+ */
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
@@ -22,84 +18,84 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status')
-    const priority = searchParams.get('priority')
-    const projectId = searchParams.get('projectId')
-    const agentId = searchParams.get('agentId')
+    const query = Object.fromEntries(searchParams.entries())
+    
+    const parsed = TaskQuerySchema.safeParse(query)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid query parameters', details: parsed.error.flatten() },
+        { status: 400 }
+      )
+    }
 
-const where: {
-      createdById: string
-      status?: 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE' | 'CANCELLED'
-      priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
-      projectId?: string
-      agentId?: string
-    } = {
+    const {
+      projectId,
+      status,
+      priority,
+      assigneeId,
+      agentId,
+      requiresReview,
+      page,
+      limit,
+    } = parsed.data
+
+    // Build where clause with ownership check
+    const where: Record<string, unknown> = {
       createdById: session.user.id,
     }
 
-    if (status && ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'CANCELLED'].includes(status)) {
-      where.status = status as 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE' | 'CANCELLED'
-    }
-    if (priority && ['LOW', 'MEDIUM', 'HIGH', 'URGENT'].includes(priority)) {
-      where.priority = priority as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
-    }
-    if (projectId) {
-      where.projectId = projectId
-    }
-    if (agentId) {
-      where.agentId = agentId
-    }
+    if (projectId) where.projectId = projectId
+    if (status) where.status = status
+    if (priority) where.priority = priority
+    if (assigneeId) where.assigneeId = assigneeId
+    if (agentId) where.agentId = agentId
+    if (requiresReview !== undefined) where.requiresReview = requiresReview
 
-    const tasks = await db.task.findMany({
-      where,
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
+    const skip = (page - 1) * limit
+
+    const [tasks, total] = await Promise.all([
+      db.task.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [
+          { priority: 'desc' },
+          { createdAt: 'desc' },
+        ],
+        include: {
+          project: { select: { id: true, name: true } },
+          assignee: { select: { id: true, name: true, email: true, image: true } },
+          createdBy: { select: { id: true, name: true, email: true } },
+          agent: { select: { id: true, name: true, type: true, status: true } },
+          reviewedBy: { select: { id: true, name: true, email: true } },
         },
-        assignee: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-          },
-        },
-        agent: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-            status: true,
-          },
-        },
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+      }),
+      db.task.count({ where }),
+    ])
+
+    return NextResponse.json({
+      tasks,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
-      orderBy: [
-        { status: 'asc' },
-        { priority: 'desc' },
-        { createdAt: 'desc' },
-      ],
     })
-
-    return NextResponse.json({ tasks })
   } catch (error) {
-    console.error('Error fetching tasks:', error)
+    console.error('GET /api/tasks error:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch tasks' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
 }
 
+/**
+ * POST /api/tasks
+ * Create a new task with trust fields as first-class citizens
+ * Auto-flags for review if confidence is low
+ */
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
@@ -108,15 +104,34 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const validatedData = createTaskSchema.parse(body)
+    const parsed = CreateTaskSchema.safeParse(body)
 
-    // Verify project ownership if projectId is provided
-    if (validatedData.projectId) {
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', details: parsed.error.flatten() },
+        { status: 400 }
+      )
+    }
+
+    const {
+      title,
+      description,
+      status,
+      priority,
+      projectId,
+      assigneeId,
+      agentId,
+      dueDate,
+      confidenceScore,
+      reasoningLog,
+      executionSteps,
+      requiresReview,
+    } = parsed.data
+
+    // Validate project belongs to user if provided
+    if (projectId) {
       const project = await db.project.findFirst({
-        where: {
-          id: validatedData.projectId,
-          userId: session.user.id,
-        },
+        where: { id: projectId, userId: session.user.id },
       })
       if (!project) {
         return NextResponse.json(
@@ -126,13 +141,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verify agent ownership if agentId is provided
-    if (validatedData.agentId) {
+    // Validate agent belongs to user if provided
+    if (agentId) {
       const agent = await db.agent.findFirst({
-        where: {
-          id: validatedData.agentId,
-          userId: session.user.id,
-        },
+        where: { id: agentId, userId: session.user.id },
       })
       if (!agent) {
         return NextResponse.json(
@@ -142,57 +154,41 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Auto-flag for review based on confidence - trust calibration feature
+    const autoRequiresReview = requiresReview || shouldRequireReview(confidenceScore ?? null)
+
     const task = await db.task.create({
       data: {
-        ...validatedData,
-        dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : null,
+        title,
+        description: description ?? null,
+        status,
+        priority,
+        projectId: projectId ?? null,
+        assigneeId: assigneeId ?? null,
+        agentId: agentId ?? null,
         createdById: session.user.id,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        // Trust fields - first-class features
+        confidenceScore: confidenceScore ?? null,
+        reasoningLog: reasoningLog as Prisma.InputJsonValue | undefined,
+        executionSteps: executionSteps as Prisma.InputJsonValue | undefined,
+        requiresReview: autoRequiresReview,
+        // Track first attempt for retry velocity metric
+        firstAttemptAt: status === 'IN_PROGRESS' ? new Date() : null,
       },
       include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        assignee: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-          },
-        },
-        agent: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-            status: true,
-          },
-        },
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        project: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true, email: true, image: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
+        agent: { select: { id: true, name: true, type: true, status: true } },
       },
     })
 
-    return NextResponse.json({ task }, { status: 201 })
+    return NextResponse.json(task, { status: 201 })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      )
-    }
-
-    console.error('Error creating task:', error)
+    console.error('POST /api/tasks error:', error)
     return NextResponse.json(
-      { error: 'Failed to create task' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

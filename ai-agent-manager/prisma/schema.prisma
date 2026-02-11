@@ -32,7 +32,7 @@ model User {
   auditLogs     AuditLog[]
   tasks         Task[]    @relation("TaskAssignee")
   createdTasks  Task[]    @relation("TaskCreator")
-  reviewedTasks Task[]    @relation("TaskReviewer")  // Tasks this user has reviewed
+  reviewedTasks Task[]    @relation("TaskReviewer")
 
   @@index([email])
   @@map("users")
@@ -81,25 +81,29 @@ model VerificationToken {
 }
 
 model Agent {
-  id            String        @id @default(cuid())
-  name          String
-  description   String?
-  type          AgentType
-  status        AgentStatus   @default(IDLE)
-  config        Json?
-  systemPrompt  String?       @db.Text
-  tools         String[]      @default([])
-  userId        String
-  projectId     String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  // Trust & Transparency fields (design-lead Sprint 1 review)
-  confidenceScore    Float?          @map("confidence_score")  // Agent's confidence level (0.0 - 1.0)
-  reasoningLog       Json?           @map("reasoning_log")     // Structured log of agent reasoning/decisions
-  executionHistory   Json?           @map("execution_history") // History of agent executions with outcomes
-  lastConfidenceAt   DateTime?       @map("last_confidence_at") // When confidence was last calculated
-  requiresReview     Boolean         @default(false) @map("requires_review") // Flag for low-confidence completions
+  id              String        @id @default(cuid())
+  name            String
+  description     String?
+  type            AgentType
+  status          AgentStatus   @default(IDLE)
+  config          Json?
+  systemPrompt    String?       @db.Text
+  tools           String[]      @default([])
+  userId          String
+  projectId       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Trust calibration fields - first-class features per product-lead guidance
+  confidenceScore   Float?        // Agent overall confidence level 0.0-1.0
+  reasoningLog      Json?         // Structured log of agent reasoning decisions
+  executionHistory  Json?         // History of agent executions with outcomes
+  lastConfidenceAt  DateTime?     // When confidence was last calculated
+  requiresReview    Boolean       @default(false) // Flag for low-confidence agents
+  
+  // Framework-agnostic support
+  framework       String?       // e.g., "langchain", "crewai", "autogpt", "custom"
+  capabilities    String[]      @default([]) // Capability tags for matching
 
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   project       Project?      @relation(fields: [projectId], references: [id])
@@ -145,14 +149,22 @@ model Task {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   dueDate     DateTime?
-
-  // Trust & Transparency fields (design-lead Sprint 1 review)
-  confidenceScore   Float?    @map("confidence_score")    // Task completion confidence (0.0 - 1.0)
-  reasoningLog      Json?     @map("reasoning_log")       // Agent reasoning for task decisions
-  executionSteps    Json?     @map("execution_steps")     // Step-by-step execution details
-  requiresReview    Boolean   @default(false) @map("requires_review") // Human review flag for low confidence
-  reviewedAt        DateTime? @map("reviewed_at")         // When human reviewed
-  reviewedById      String?   @map("reviewed_by_id")      // Who reviewed
+  
+  // Trust calibration fields - first-class features per product-lead guidance
+  confidenceScore   Float?        // Task completion confidence 0.0-1.0
+  reasoningLog      Json?         // Agent reasoning for task decisions
+  executionSteps    Json?         // Step-by-step execution details
+  requiresReview    Boolean       @default(false) // Human review flag for low-confidence
+  
+  // Review tracking
+  reviewedAt        DateTime?     // When task was reviewed
+  reviewedById      String?       // Who reviewed the task
+  reviewNotes       String?       @db.Text // Review feedback/notes
+  
+  // Trust metrics for product-lead's additional metrics
+  wasOverridden     Boolean       @default(false) // False confidence tracking
+  retryCount        Int           @default(0)     // Task retry velocity tracking
+  firstAttemptAt    DateTime?     // For measuring retry velocity
 
   project    Project? @relation(fields: [projectId], references: [id])
   assignee   User?    @relation("TaskAssignee", fields: [assigneeId], references: [id])
@@ -166,6 +178,7 @@ model Task {
   @@index([status])
   @@index([priority])
   @@index([requiresReview])
+  @@index([reviewedById])
   @@map("tasks")
 }
 
