@@ -7,7 +7,7 @@ import { compare } from 'bcryptjs'
 import { db } from '@/lib/db'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(db),
+  adapter: PrismaAdapter(db) as any,
   session: {
     strategy: 'jwt',
   },
