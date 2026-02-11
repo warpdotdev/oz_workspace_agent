@@ -8,13 +8,8 @@ import { Clock, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CardDensity } from './task-filters'
 
-interface ExtendedTask extends Task {
-  confidenceScore?: number | null
-  requiresReview?: boolean
-}
-
 interface TaskCardProps {
-  task: ExtendedTask
+  task: Task
   onClick?: () => void
   density?: CardDensity
 }

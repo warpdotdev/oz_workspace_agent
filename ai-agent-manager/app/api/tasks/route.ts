@@ -39,6 +39,8 @@ export async function GET(request: NextRequest) {
     const priority = searchParams.get('priority')
     const projectId = searchParams.get('projectId')
     const agentId = searchParams.get('agentId')
+    const requiresReview = searchParams.get('requiresReview')
+    const hasError = searchParams.get('hasError')
 
     const where: Prisma.TaskWhereInput = {
       createdById: session.user.id,
@@ -55,6 +57,14 @@ export async function GET(request: NextRequest) {
     }
     if (agentId) {
       where.agentId = agentId
+    }
+    // Trust filters
+    if (requiresReview === 'true') {
+      where.requiresReview = true
+    }
+    // Error filter
+    if (hasError === 'true') {
+      where.errorMessage = { not: null }
     }
 
     const tasks = await db.task.findMany({
@@ -89,15 +99,30 @@ export async function GET(request: NextRequest) {
             email: true,
           },
         },
+        reviewedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
       orderBy: [
+        { requiresReview: 'desc' }, // Prioritize items needing review
         { status: 'asc' },
         { priority: 'desc' },
         { createdAt: 'desc' },
       ],
     })
 
-    return NextResponse.json({ tasks })
+    // Include metadata about task states
+    const meta = {
+      total: tasks.length,
+      needsReview: tasks.filter(t => t.requiresReview).length,
+      hasErrors: tasks.filter(t => t.errorMessage).length,
+    }
+
+    return NextResponse.json({ tasks, meta })
   } catch (error) {
     console.error('Error fetching tasks:', error)
     return NextResponse.json(

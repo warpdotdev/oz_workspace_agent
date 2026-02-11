@@ -14,6 +14,19 @@ export interface Task {
   createdAt: string
   updatedAt: string
   dueDate: string | null
+  // Trust calibration fields
+  confidenceScore?: number | null
+  reasoningLog?: Record<string, unknown> | null
+  executionSteps?: Record<string, unknown> | null
+  requiresReview: boolean
+  reviewedAt?: string | null
+  reviewedById?: string | null
+  // Error tracking fields
+  errorMessage?: string | null
+  errorCode?: string | null
+  retryCount: number
+  lastRetryAt?: string | null
+  // Relations
   project: {
     id: string
     name: string
@@ -35,6 +48,11 @@ export interface Task {
     name: string | null
     email: string
   }
+  reviewedBy?: {
+    id: string
+    name: string | null
+    email: string
+  } | null
 }
 
 export interface CreateTaskInput {

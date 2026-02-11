@@ -13,6 +13,12 @@ const updateTaskSchema = z.object({
   assigneeId: z.string().optional().nullable(),
   agentId: z.string().optional().nullable(),
   dueDate: z.string().datetime().optional().nullable(),
+  // Error tracking fields
+  errorMessage: z.string().optional().nullable(),
+  errorCode: z.string().optional().nullable(),
+  // Action fields
+  markAsReviewed: z.boolean().optional(),
+  retry: z.boolean().optional(),
 })
 
 export async function PATCH(
@@ -81,6 +87,26 @@ export async function PATCH(
       updateData.dueDate = validatedData.dueDate ? new Date(validatedData.dueDate) : null
     }
 
+    // Handle review action
+    if (validatedData.markAsReviewed) {
+      updateData.reviewedAt = new Date()
+      updateData.reviewedById = session.user.id
+      updateData.requiresReview = false
+      delete updateData.markAsReviewed
+    }
+
+    // Handle retry action
+    if (validatedData.retry) {
+      updateData.retryCount = existingTask.retryCount + 1
+      updateData.lastRetryAt = new Date()
+      // Clear error on retry
+      updateData.errorMessage = null
+      updateData.errorCode = null
+      // Reset to in progress
+      updateData.status = 'IN_PROGRESS'
+      delete updateData.retry
+    }
+
     const task = await db.task.update({
       where: { id },
       data: updateData,
@@ -108,6 +134,13 @@ export async function PATCH(
           },
         },
         createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        reviewedBy: {
           select: {
             id: true,
             name: true,

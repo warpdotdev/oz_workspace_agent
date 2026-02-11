@@ -154,6 +154,12 @@ model Task {
   reviewedAt        DateTime? @map("reviewed_at")         // When human reviewed
   reviewedById      String?   @map("reviewed_by_id")      // Who reviewed
 
+  // Error tracking (errors as first-class features per product-lead)
+  errorMessage      String?   @db.Text @map("error_message")   // Error details if task failed
+  errorCode         String?   @map("error_code")               // Machine-readable error code
+  retryCount        Int       @default(0) @map("retry_count")  // Number of retry attempts
+  lastRetryAt       DateTime? @map("last_retry_at")            // Timestamp of last retry
+
   project    Project? @relation(fields: [projectId], references: [id])
   assignee   User?    @relation("TaskAssignee", fields: [assigneeId], references: [id])
   createdBy  User     @relation("TaskCreator", fields: [createdById], references: [id])
