@@ -131,6 +131,151 @@ class ApiClient {
       method: 'POST',
     });
   }
+
+  // Monitoring endpoints
+  async getMonitoringStats(): Promise<ApiResponse<MonitoringStats>> {
+    return this.request<MonitoringStats>('/api/monitoring/stats');
+  }
+
+  async getAgentHealth(id: string): Promise<ApiResponse<AgentHealth>> {
+    return this.request<AgentHealth>(`/api/monitoring/agents/${id}/health`);
+  }
+
+  async getEvents(params?: EventQueryParams): Promise<ApiResponse<Event[]>> {
+    const query = new URLSearchParams();
+    if (params?.agentId) query.set('agentId', params.agentId);
+    if (params?.type) query.set('type', params.type);
+    if (params?.level) query.set('level', params.level);
+    if (params?.startDate) query.set('startDate', params.startDate.toISOString());
+    if (params?.endDate) query.set('endDate', params.endDate.toISOString());
+    if (params?.limit) query.set('limit', params.limit.toString());
+    
+    const queryString = query.toString();
+    return this.request<Event[]>(`/api/monitoring/events${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getAuditLogs(params?: AuditLogQueryParams): Promise<ApiResponse<AuditLog[]>> {
+    const query = new URLSearchParams();
+    if (params?.resource) query.set('resource', params.resource);
+    if (params?.action) query.set('action', params.action);
+    if (params?.startDate) query.set('startDate', params.startDate.toISOString());
+    if (params?.endDate) query.set('endDate', params.endDate.toISOString());
+    if (params?.limit) query.set('limit', params.limit.toString());
+    
+    const queryString = query.toString();
+    return this.request<AuditLog[]>(`/api/monitoring/audit-logs${queryString ? `?${queryString}` : ''}`);
+  }
+}
+
+// Monitoring types
+export interface MonitoringStats {
+  overview: {
+    totalAgents: number;
+    activeAgents: number;
+    idleAgents: number;
+    errorAgents: number;
+    totalTasks: number;
+    runningTasks: number;
+    completedTasks: number;
+    failedTasks: number;
+  };
+  recentEvents: Event[];
+  recentAuditLogs: AuditLog[];
+  errorSummary: ErrorSummary[];
+}
+
+export interface AgentHealth {
+  agentId: string;
+  agentName: string;
+  status: AgentStatus;
+  uptime: number | null;
+  taskCompletionRate: number;
+  errorRate: number;
+  lastActivity: string | null;
+  confidenceScore: number;
+  recentEvents: Event[];
+}
+
+export interface Event {
+  id: string;
+  type: EventType;
+  message: string;
+  level: EventLevel;
+  timestamp: string;
+  agentId: string | null;
+  taskId: string | null;
+  agent?: {
+    id: string;
+    name: string;
+    status: AgentStatus;
+  } | null;
+  task?: {
+    id: string;
+    title: string;
+    status: string;
+  } | null;
+}
+
+export enum EventType {
+  AGENT_STARTED = 'AGENT_STARTED',
+  AGENT_STOPPED = 'AGENT_STOPPED',
+  AGENT_ERROR = 'AGENT_ERROR',
+  AGENT_CONFIG_UPDATED = 'AGENT_CONFIG_UPDATED',
+  TASK_CREATED = 'TASK_CREATED',
+  TASK_STARTED = 'TASK_STARTED',
+  TASK_COMPLETED = 'TASK_COMPLETED',
+  TASK_FAILED = 'TASK_FAILED',
+  TASK_CANCELLED = 'TASK_CANCELLED',
+  TASK_RETRYING = 'TASK_RETRYING',
+  SYSTEM_INFO = 'SYSTEM_INFO',
+  SYSTEM_WARNING = 'SYSTEM_WARNING',
+  SYSTEM_ERROR = 'SYSTEM_ERROR',
+}
+
+export enum EventLevel {
+  DEBUG = 'DEBUG',
+  INFO = 'INFO',
+  WARNING = 'WARNING',
+  ERROR = 'ERROR',
+  CRITICAL = 'CRITICAL',
+}
+
+export interface AuditLog {
+  id: string;
+  action: string;
+  resource: string;
+  resourceId: string;
+  timestamp: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+  };
+}
+
+export interface ErrorSummary {
+  agentId: string;
+  agentName: string;
+  errorCount: number;
+  lastError: string;
+  lastErrorTime: string;
+}
+
+export interface EventQueryParams {
+  agentId?: string;
+  type?: string;
+  level?: string;
+  startDate?: Date;
+  endDate?: Date;
+  limit?: number;
+}
+
+export interface AuditLogQueryParams {
+  resource?: string;
+  action?: string;
+  startDate?: Date;
+  endDate?: Date;
+  limit?: number;
 }
 
 export const api = new ApiClient();

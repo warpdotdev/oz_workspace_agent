@@ -7,6 +7,7 @@ import { config } from './config/index.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/auth.js';
 import agentRoutes from './routes/agents.js';
+import monitoringRoutes from './routes/monitoring.js';
 
 // Create Express app
 const app = express();
@@ -39,6 +40,7 @@ app.get('/health', (_req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/agents', agentRoutes);
+app.use('/api/monitoring', monitoringRoutes);
 
 // API documentation endpoint
 app.get('/api', (_req, res) => {
@@ -65,6 +67,12 @@ app.get('/api', (_req, res) => {
         'GET /api/agents/:id/stats': 'Get agent statistics',
         'POST /api/agents/:id/capabilities': 'Add a capability to an agent',
         'DELETE /api/agents/:id/capabilities/:capabilityId': 'Remove a capability',
+      },
+      monitoring: {
+        'GET /api/monitoring/stats': 'Get comprehensive monitoring statistics',
+        'GET /api/monitoring/agents/:id/health': 'Get health metrics for an agent',
+        'GET /api/monitoring/events': 'Get events with optional filters',
+        'GET /api/monitoring/audit-logs': 'Get audit logs with optional filters',
       },
     },
   });
