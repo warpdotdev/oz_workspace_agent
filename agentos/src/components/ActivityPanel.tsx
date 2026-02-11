@@ -36,6 +36,16 @@ const activityTypeConfig: Record<
     color: "text-status-running",
     label: "Complete",
   },
+  task_completed: {
+    icon: CompleteIcon,
+    color: "text-status-running",
+    label: "Completed",
+  },
+  task_started: {
+    icon: ActionIcon,
+    color: "text-accent-primary",
+    label: "Started",
+  },
   user_input: {
     icon: UserIcon,
     color: "text-accent-secondary",

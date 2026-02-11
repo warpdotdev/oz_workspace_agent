@@ -31,6 +31,8 @@ export type ActivityType =
   | "status_change"
   | "error"
   | "task_complete"
+  | "task_completed"
+  | "task_started"
   | "user_input";
 
 export interface Activity {
@@ -39,6 +41,17 @@ export interface Activity {
   agentName: string;
   type: ActivityType;
   content: string;
+  timestamp: Date;
+  metadata?: Record<string, unknown>;
+}
+
+// Activity event for feed (matches backend AgentEvent)
+export interface ActivityEvent {
+  id: string;
+  agentId: string;
+  agentName: string;
+  type: ActivityType;
+  message: string;
   timestamp: Date;
   metadata?: Record<string, unknown>;
 }
