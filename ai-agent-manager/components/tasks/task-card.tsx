@@ -1,16 +1,25 @@
 import { Card } from '@/components/ui/card'
 import { PriorityBadge } from './priority-badge'
+import { ConfidenceBadge, ReviewRequiredBadge } from './confidence-badge'
 import { Task } from '@/types/task'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Clock, User } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { CardDensity } from './task-filters'
 
-interface TaskCardProps {
-  task: Task
-  onClick?: () => void
+interface ExtendedTask extends Task {
+  confidenceScore?: number | null
+  requiresReview?: boolean
 }
 
-export function TaskCard({ task, onClick }: TaskCardProps) {
+interface TaskCardProps {
+  task: ExtendedTask
+  onClick?: () => void
+  density?: CardDensity
+}
+
+export function TaskCard({ task, onClick, density = 'comfortable' }: TaskCardProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -26,21 +35,49 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
     return date.toLocaleDateString()
   }
 
+  const isCompact = density === 'compact'
+  const isSpaciouos = density === 'spacious'
+
+  // Show review required badge if confidence is below 70%
+  const showReviewRequired = task.requiresReview || 
+    (task.confidenceScore !== null && task.confidenceScore !== undefined && task.confidenceScore < 70)
+
   return (
     <Card
-      className="p-4 cursor-pointer hover:shadow-md transition-shadow bg-white dark:bg-zinc-900"
+      className={cn(
+        'cursor-pointer hover:shadow-md transition-shadow bg-white dark:bg-zinc-900',
+        isCompact ? 'p-2' : isSpaciouos ? 'p-5' : 'p-4'
+      )}
       onClick={onClick}
     >
-      <div className="space-y-3">
+      <div className={cn(isCompact ? 'space-y-1' : isSpaciouos ? 'space-y-4' : 'space-y-3')}>
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-medium text-sm line-clamp-2 flex-1">
+          <h3 className={cn(
+            'font-medium flex-1',
+            isCompact ? 'text-xs line-clamp-1' : 'text-sm line-clamp-2'
+          )}>
             {task.title}
           </h3>
-          <PriorityBadge priority={task.priority} />
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <PriorityBadge priority={task.priority} />
+          </div>
         </div>
 
-        {task.description && (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2">
+        {/* Show review required badge */}
+        {showReviewRequired && (
+          <ReviewRequiredBadge />
+        )}
+
+        {/* Confidence score */}
+        {task.confidenceScore !== null && task.confidenceScore !== undefined && (
+          <ConfidenceBadge confidence={task.confidenceScore} showBar={!isCompact} />
+        )}
+
+        {!isCompact && task.description && (
+          <p className={cn(
+            'text-zinc-600 dark:text-zinc-400',
+            isSpaciouos ? 'text-sm line-clamp-3' : 'text-sm line-clamp-2'
+          )}>
             {task.description}
           </p>
         )}
@@ -50,7 +87,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
             {task.agent ? (
               <Badge variant="secondary" className="text-xs">
                 <User className="w-3 h-3 mr-1" />
-                {task.agent.name}
+                {isCompact ? task.agent.name.slice(0, 8) : task.agent.name}
               </Badge>
             ) : task.assignee ? (
               <div className="flex items-center gap-1">
@@ -60,10 +97,12 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                     {task.assignee.name?.charAt(0) || task.assignee.email.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-xs">{task.assignee.name || task.assignee.email}</span>
+                {!isCompact && (
+                  <span className="text-xs">{task.assignee.name || task.assignee.email}</span>
+                )}
               </div>
             ) : (
-              <span className="text-zinc-400">Unassigned</span>
+              <span className="text-zinc-400">{isCompact ? '—' : 'Unassigned'}</span>
             )}
           </div>
 
@@ -73,7 +112,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           </div>
         </div>
 
-        {task.dueDate && (
+        {!isCompact && task.dueDate && (
           <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
             <Clock className="w-3 h-3" />
             <span>Due {formatDate(task.dueDate)}</span>
