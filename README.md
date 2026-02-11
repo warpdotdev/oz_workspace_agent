@@ -53,12 +53,30 @@ npm install
 
 2. Set up environment variables:
 ```bash
-# Copy example env files (when available)
 cp packages/backend/.env.example packages/backend/.env
+# Edit packages/backend/.env with your configuration
 ```
 
-3. Start development servers:
+3. Start database services:
 ```bash
+docker-compose up -d
+```
+
+This will start PostgreSQL on port 5432 and Redis on port 6379.
+
+4. Run database migrations:
+```bash
+# Generate Prisma client and run migrations
+cd packages/backend
+npx prisma migrate dev --name init
+npx prisma generate
+```
+
+5. Start development servers:
+```bash
+# Return to project root
+cd ../..
+
 # Start all services (backend + frontend)
 npm run dev
 
