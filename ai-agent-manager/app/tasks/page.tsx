@@ -1,14 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { Task, TaskStatus, CreateTaskInput } from '@/types/task'
+import { Task, TaskStatus, CreateTaskInput, TaskPriority } from '@/types/task'
 import { KanbanColumn } from '@/components/tasks/kanban-column'
 import { TaskModal } from '@/components/tasks/task-modal'
 import { TaskCard } from '@/components/tasks/task-card'
+import { TaskFilters, CardDensity } from '@/components/tasks/task-filters'
 import { Button } from '@/components/ui/button'
-import { Plus, RefreshCw } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Plus, RefreshCw, Wifi, WifiOff } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTaskEvents } from '@/hooks/use-task-events'
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -18,6 +21,12 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | undefined>()
   const [activeTask, setActiveTask] = useState<Task | null>(null)
 
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'ALL'>('ALL')
+  const [agentFilter, setAgentFilter] = useState<string | 'ALL'>('ALL')
+  const [density, setDensity] = useState<CardDensity>('comfortable')
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -25,6 +34,32 @@ export default function TasksPage() {
       },
     })
   )
+
+  // Real-time task event handlers
+  const handleTaskCreatedEvent = useCallback((task: Task) => {
+    setTasks((prev) => {
+      // Avoid duplicates (in case optimistic update already added it)
+      if (prev.some((t) => t.id === task.id)) {
+        return prev.map((t) => (t.id === task.id ? task : t))
+      }
+      return [...prev, task]
+    })
+  }, [])
+
+  const handleTaskUpdatedEvent = useCallback((task: Task) => {
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)))
+  }, [])
+
+  const handleTaskDeletedEvent = useCallback((taskId: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId))
+  }, [])
+
+  // SSE connection for real-time updates
+  const { isConnected, reconnect } = useTaskEvents({
+    onTaskCreated: handleTaskCreatedEvent,
+    onTaskUpdated: handleTaskUpdatedEvent,
+    onTaskDeleted: handleTaskDeletedEvent,
+  })
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -55,10 +90,7 @@ export default function TasksPage() {
   useEffect(() => {
     fetchTasks()
     fetchAgents()
-
-    // Poll for updates every 5 seconds
-    const interval = setInterval(fetchTasks, 5000)
-    return () => clearInterval(interval)
+    // No longer need polling - real-time updates via SSE
   }, [fetchTasks, fetchAgents])
 
   const handleCreateTask = async (taskData: CreateTaskInput) => {
@@ -159,13 +191,43 @@ export default function TasksPage() {
     setEditingTask(undefined)
   }
 
+  // Filter tasks based on search and filters
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        const matchesTitle = task.title.toLowerCase().includes(query)
+        const matchesDescription = task.description?.toLowerCase().includes(query)
+        if (!matchesTitle && !matchesDescription) return false
+      }
+
+      // Priority filter
+      if (priorityFilter !== 'ALL' && task.priority !== priorityFilter) {
+        return false
+      }
+
+      // Agent filter
+      if (agentFilter !== 'ALL') {
+        if (agentFilter === 'UNASSIGNED') {
+          if (task.agentId) return false
+        } else {
+          if (task.agentId !== agentFilter) return false
+        }
+      }
+
+      return true
+    })
+  }, [tasks, searchQuery, priorityFilter, agentFilter])
+
   const getTasksByStatus = (status: TaskStatus) => {
-    return tasks.filter((task) => task.status === status)
+    return filteredTasks.filter((task) => task.status === status)
   }
 
   const columns: Array<{ status: TaskStatus; title: string }> = [
     { status: 'TODO', title: 'To Do' },
     { status: 'IN_PROGRESS', title: 'In Progress' },
+    { status: 'REVIEW', title: 'Review' },
     { status: 'DONE', title: 'Done' },
   ]
 
@@ -187,21 +249,49 @@ export default function TasksPage() {
               Manage your tasks with drag-and-drop
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => fetchTasks()}
-              title="Refresh"
+          <div className="flex items-center gap-3">
+            <Badge
+              variant={isConnected ? 'default' : 'secondary'}
+              className={`flex items-center gap-1 ${isConnected ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'}`}
+              title={isConnected ? 'Real-time updates active' : 'Reconnecting...'}
             >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button onClick={() => setIsModalOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Task
-            </Button>
+              {isConnected ? (
+                <><Wifi className="h-3 w-3" /> Live</>
+              ) : (
+                <><WifiOff className="h-3 w-3" /> Offline</>
+              )}
+            </Badge>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  fetchTasks()
+                  if (!isConnected) reconnect()
+                }}
+                title="Refresh & reconnect"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button onClick={() => setIsModalOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Task
+              </Button>
+            </div>
           </div>
         </div>
+
+        <TaskFilters
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          priorityFilter={priorityFilter}
+          onPriorityChange={setPriorityFilter}
+          agentFilter={agentFilter}
+          onAgentChange={setAgentFilter}
+          agents={agents}
+          density={density}
+          onDensityChange={setDensity}
+        />
 
         <DndContext
           sensors={sensors}
@@ -216,12 +306,13 @@ export default function TasksPage() {
                 title={column.title}
                 tasks={getTasksByStatus(column.status)}
                 onTaskClick={handleTaskClick}
+                density={density}
               />
             ))}
           </div>
 
           <DragOverlay>
-            {activeTask ? <TaskCard task={activeTask} /> : null}
+            {activeTask ? <TaskCard task={activeTask} density={density} /> : null}
           </DragOverlay>
         </DndContext>
 

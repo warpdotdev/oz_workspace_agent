@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { z } from 'zod'
+import { emitTaskCreated } from '@/lib/task-events'
+import { Prisma } from '@prisma/client'
 
 const createTaskSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -13,6 +15,17 @@ const createTaskSchema = z.object({
   agentId: z.string().optional(),
   dueDate: z.string().datetime().optional(),
 })
+
+const validStatuses = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'CANCELLED'] as const
+const validPriorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
+
+function isValidStatus(status: string): status is typeof validStatuses[number] {
+  return validStatuses.includes(status as typeof validStatuses[number])
+}
+
+function isValidPriority(priority: string): priority is typeof validPriorities[number] {
+  return validPriorities.includes(priority as typeof validPriorities[number])
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,20 +40,14 @@ export async function GET(request: NextRequest) {
     const projectId = searchParams.get('projectId')
     const agentId = searchParams.get('agentId')
 
-    const where: {
-      createdById: string
-      status?: string
-      priority?: string
-      projectId?: string
-      agentId?: string
-    } = {
+    const where: Prisma.TaskWhereInput = {
       createdById: session.user.id,
     }
 
-    if (status) {
+    if (status && isValidStatus(status)) {
       where.status = status
     }
-    if (priority) {
+    if (priority && isValidPriority(priority)) {
       where.priority = priority
     }
     if (projectId) {
@@ -180,6 +187,9 @@ export async function POST(request: NextRequest) {
         },
       },
     })
+
+    // Emit real-time event for task creation
+    emitTaskCreated(session.user.id, task.id, task)
 
     return NextResponse.json({ task }, { status: 201 })
   } catch (error) {

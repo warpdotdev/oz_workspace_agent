@@ -5,20 +5,24 @@ import { TaskCard } from './task-card'
 import { Badge } from '@/components/ui/badge'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { CardDensity } from './task-filters'
+import { Inbox, PlayCircle, Eye, CheckCircle } from 'lucide-react'
 
 interface KanbanColumnProps {
   status: TaskStatus
   tasks: Task[]
   title: string
   onTaskClick?: (task: Task) => void
+  density?: CardDensity
 }
 
 interface SortableTaskCardProps {
   task: Task
   onClick?: () => void
+  density?: CardDensity
 }
 
-function SortableTaskCard({ task, onClick }: SortableTaskCardProps) {
+function SortableTaskCard({ task, onClick, density }: SortableTaskCardProps) {
   const {
     attributes,
     listeners,
@@ -36,7 +40,7 @@ function SortableTaskCard({ task, onClick }: SortableTaskCardProps) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <TaskCard task={task} onClick={onClick} />
+      <TaskCard task={task} onClick={onClick} density={density} />
     </div>
   )
 }
@@ -49,12 +53,48 @@ const statusColors = {
   CANCELLED: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300',
 }
 
-export function KanbanColumn({ status, tasks, title, onTaskClick }: KanbanColumnProps) {
+const emptyStateContent = {
+  TODO: {
+    icon: Inbox,
+    title: 'No tasks yet',
+    description: 'Create a new task to get started',
+  },
+  IN_PROGRESS: {
+    icon: PlayCircle,
+    title: 'Nothing in progress',
+    description: 'Drag a task here to start working on it',
+  },
+  REVIEW: {
+    icon: Eye,
+    title: 'Nothing to review',
+    description: 'Tasks that need review will appear here',
+  },
+  DONE: {
+    icon: CheckCircle,
+    title: 'No completed tasks',
+    description: 'Completed tasks will show up here',
+  },
+  CANCELLED: {
+    icon: Inbox,
+    title: 'No cancelled tasks',
+    description: 'Cancelled tasks will appear here',
+  },
+}
+
+export function KanbanColumn({ status, tasks, title, onTaskClick, density = 'comfortable' }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
   })
 
   const taskIds = tasks.map((task) => task.id)
+  const emptyState = emptyStateContent[status]
+  const EmptyIcon = emptyState.icon
+
+  const spacingClass = {
+    compact: 'space-y-1',
+    comfortable: 'space-y-3',
+    spacious: 'space-y-4',
+  }[density]
 
   return (
     <div className="flex flex-col h-full min-w-[320px]">
@@ -69,14 +109,20 @@ export function KanbanColumn({ status, tasks, title, onTaskClick }: KanbanColumn
 
       <div
         ref={setNodeRef}
-        className={`flex-1 space-y-3 p-2 rounded-lg min-h-[200px] transition-colors ${
+        className={`flex-1 ${spacingClass} p-2 rounded-lg min-h-[200px] transition-colors ${
           isOver ? 'bg-zinc-100 dark:bg-zinc-800' : 'bg-zinc-50 dark:bg-zinc-900/50'
         }`}
       >
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {tasks.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-sm text-zinc-400">
-              No tasks
+            <div className="flex flex-col items-center justify-center h-32 text-center">
+              <EmptyIcon className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mb-2" />
+              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                {emptyState.title}
+              </p>
+              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
+                {emptyState.description}
+              </p>
             </div>
           ) : (
             tasks.map((task) => (
@@ -84,6 +130,7 @@ export function KanbanColumn({ status, tasks, title, onTaskClick }: KanbanColumn
                 key={task.id}
                 task={task}
                 onClick={() => onTaskClick?.(task)}
+                density={density}
               />
             ))
           )}
