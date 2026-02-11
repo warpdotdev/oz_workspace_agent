@@ -82,6 +82,27 @@ export const updateTaskSchema = z.object({
   errorMessage: z.string().max(2000).optional(),
 });
 
+export const taskQuerySchema = paginationSchema.extend({
+  status: z.nativeEnum(TaskStatus).optional(),
+  priority: z.nativeEnum(TaskPriority).optional(),
+  agentId: z.string().cuid().optional(),
+  search: z.string().max(255).optional(),
+  sortBy: z.enum(['title', 'createdAt', 'updatedAt', 'priority', 'status']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export const completeTaskSchema = z.object({
+  output: z.record(z.unknown()).default({}),
+});
+
+export const failTaskSchema = z.object({
+  errorMessage: z.string().max(2000),
+});
+
+export const assignTaskSchema = z.object({
+  agentId: z.string().cuid().nullable(),
+});
+
 // Event query schema
 export const eventQuerySchema = paginationSchema.extend({
   agentId: z.string().cuid().optional(),
@@ -115,6 +136,7 @@ export type UpdateAgentInput = z.infer<typeof updateAgentSchema>;
 export type AgentQueryParams = z.infer<typeof agentQuerySchema>;
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+export type TaskQueryParams = z.infer<typeof taskQuerySchema>;
 export type EventQueryParams = z.infer<typeof eventQuerySchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;

@@ -42,12 +42,14 @@ export default function AgentList() {
 
   const getStatusColor = (status: Agent['status']) => {
     switch (status) {
-      case 'running':
+      case 'RUNNING':
         return 'bg-green-100 text-green-800';
-      case 'paused':
+      case 'PAUSED':
         return 'bg-yellow-100 text-yellow-800';
-      case 'error':
+      case 'ERROR':
         return 'bg-red-100 text-red-800';
+      case 'TERMINATED':
+        return 'bg-gray-300 text-gray-700';
       default:
         return 'bg-gray-100 text-gray-800';
     }
