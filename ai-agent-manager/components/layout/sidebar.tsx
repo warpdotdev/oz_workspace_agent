@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Settings,
   BarChart3,
+  Activity,
 } from 'lucide-react'
 
 const navigation = [
@@ -43,6 +44,11 @@ const navigation = [
     name: 'Analytics',
     href: '/analytics',
     icon: BarChart3,
+  },
+  {
+    name: 'Monitoring',
+    href: '/monitoring',
+    icon: Activity,
   },
   {
     name: 'Settings',
