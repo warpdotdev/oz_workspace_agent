@@ -7,6 +7,7 @@ import { config } from './config/index.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/auth.js';
 import agentRoutes from './routes/agents.js';
+import taskRoutes from './routes/tasks.js';
 
 // Create Express app
 const app = express();
@@ -39,6 +40,7 @@ app.get('/health', (_req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/agents', agentRoutes);
+app.use('/api/tasks', taskRoutes);
 
 // API documentation endpoint
 app.get('/api', (_req, res) => {
@@ -65,6 +67,23 @@ app.get('/api', (_req, res) => {
         'GET /api/agents/:id/stats': 'Get agent statistics',
         'POST /api/agents/:id/capabilities': 'Add a capability to an agent',
         'DELETE /api/agents/:id/capabilities/:capabilityId': 'Remove a capability',
+      },
+      tasks: {
+        'GET /api/tasks': 'List tasks with pagination and filtering',
+        'GET /api/tasks/stats': 'Get task statistics for the current user',
+        'POST /api/tasks': 'Create a new task',
+        'GET /api/tasks/:id': 'Get a task by ID',
+        'PUT /api/tasks/:id': 'Update a task',
+        'DELETE /api/tasks/:id': 'Delete a task',
+        'POST /api/tasks/:id/start': 'Start a task',
+        'POST /api/tasks/:id/complete': 'Complete a task with optional output',
+        'POST /api/tasks/:id/fail': 'Mark a task as failed',
+        'POST /api/tasks/:id/cancel': 'Cancel a task',
+        'POST /api/tasks/:id/retry': 'Retry a failed task',
+        'POST /api/tasks/:id/pause': 'Pause a running task',
+        'POST /api/tasks/:id/resume': 'Resume a paused task',
+        'POST /api/tasks/:id/assign': 'Assign or unassign a task to an agent',
+        'GET /api/tasks/:id/events': 'Get task event history',
       },
     },
   });
