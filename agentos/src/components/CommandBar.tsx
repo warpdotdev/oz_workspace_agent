@@ -1,189 +1,283 @@
-import { useState, useEffect, useRef } from 'react';
-import { useAgentStore } from '../store';
+import { useEffect, useRef, useState } from "react";
+import { useAgentStore } from "@/store/agentStore";
+import { createMockAgent, generateMockActivity } from "@/lib/mockAgentService";
 
-interface Command {
+interface CommandItem {
   id: string;
   label: string;
   description: string;
-  icon: string;
+  shortcut?: string;
+  category: "agent" | "task" | "system";
   action: () => void;
 }
 
-export default function CommandBar() {
-  const { toggleCommandBar } = useAgentStore();
-  const [query, setQuery] = useState('');
+export function CommandBar() {
+  const { isCommandBarOpen, setCommandBarOpen, agents, addAgent, updateAgent, addActivity, selectedAgentId } =
+    useAgentStore();
+  const [search, setSearch] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Available commands
-  const commands: Command[] = [
+  const commands: CommandItem[] = [
     {
-      id: 'new-agent',
-      label: 'Create New Agent',
-      description: 'Launch a new AI agent',
-      icon: '🤖',
+      id: "add-agent",
+      label: "Add New Agent",
+      description: "Create a new AI agent",
+      shortcut: "⌘N",
+      category: "agent",
       action: () => {
-        console.log('Creating new agent...');
-        toggleCommandBar();
+        const newAgent = createMockAgent(agents.length);
+        newAgent.status = "idle";
+        addAgent(newAgent);
+        setCommandBarOpen(false);
       },
     },
     {
-      id: 'dispatch-task',
-      label: 'Dispatch Task',
-      description: 'Send a task to an agent',
-      icon: '📋',
+      id: "dispatch-task",
+      label: "Dispatch Task",
+      description: "Send a task to the selected agent",
+      shortcut: "⌘D",
+      category: "task",
       action: () => {
-        console.log('Dispatching task...');
-        toggleCommandBar();
+        if (selectedAgentId) {
+          updateAgent(selectedAgentId, { status: "running" });
+          const agent = agents.find((a) => a.id === selectedAgentId);
+          if (agent) {
+            addActivity({
+              id: `${Date.now()}`,
+              agentId: selectedAgentId,
+              agentName: agent.name,
+              type: "user_input",
+              content: "New task dispatched by user",
+              timestamp: new Date(),
+            });
+          }
+        }
+        setCommandBarOpen(false);
       },
     },
     {
-      id: 'pause-all',
-      label: 'Pause All Agents',
-      description: 'Pause all running agents',
-      icon: '⏸️',
+      id: "pause-agent",
+      label: "Pause Agent",
+      description: "Pause the selected agent",
+      shortcut: "⌘P",
+      category: "agent",
       action: () => {
-        console.log('Pausing all agents...');
-        toggleCommandBar();
+        if (selectedAgentId) {
+          updateAgent(selectedAgentId, { status: "paused" });
+        }
+        setCommandBarOpen(false);
       },
     },
     {
-      id: 'resume-all',
-      label: 'Resume All Agents',
-      description: 'Resume all paused agents',
-      icon: '▶️',
+      id: "resume-agent",
+      label: "Resume Agent",
+      description: "Resume the selected agent",
+      shortcut: "⌘R",
+      category: "agent",
       action: () => {
-        console.log('Resuming all agents...');
-        toggleCommandBar();
+        if (selectedAgentId) {
+          updateAgent(selectedAgentId, { status: "running" });
+        }
+        setCommandBarOpen(false);
       },
     },
     {
-      id: 'view-logs',
-      label: 'View System Logs',
-      description: 'Open detailed system logs',
-      icon: '📜',
+      id: "stop-agent",
+      label: "Stop Agent",
+      description: "Stop the selected agent completely",
+      shortcut: "⌘S",
+      category: "agent",
       action: () => {
-        console.log('Opening logs...');
-        toggleCommandBar();
+        if (selectedAgentId) {
+          updateAgent(selectedAgentId, { status: "idle", currentTask: null });
+        }
+        setCommandBarOpen(false);
       },
     },
     {
-      id: 'settings',
-      label: 'Open Settings',
-      description: 'Configure AgentOS preferences',
-      icon: '⚙️',
+      id: "simulate-activity",
+      label: "Simulate Activity",
+      description: "Generate mock agent activity",
+      category: "system",
       action: () => {
-        console.log('Opening settings...');
-        toggleCommandBar();
+        const runningAgents = agents.filter((a) => a.status === "running");
+        if (runningAgents.length > 0) {
+          const agent = runningAgents[Math.floor(Math.random() * runningAgents.length)];
+          addActivity(generateMockActivity(agent));
+        }
+        setCommandBarOpen(false);
       },
     },
   ];
 
-  // Filter commands based on query
   const filteredCommands = commands.filter(
     (cmd) =>
-      cmd.label.toLowerCase().includes(query.toLowerCase()) ||
-      cmd.description.toLowerCase().includes(query.toLowerCase())
+      cmd.label.toLowerCase().includes(search.toLowerCase()) ||
+      cmd.description.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Focus input on mount
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    if (isCommandBarOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+    setSearch("");
+    setSelectedIndex(0);
+  }, [isCommandBarOpen]);
 
-  // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      switch (e.key) {
-        case 'ArrowDown':
-          e.preventDefault();
-          setSelectedIndex((i) => Math.min(i + 1, filteredCommands.length - 1));
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          setSelectedIndex((i) => Math.max(i - 1, 0));
-          break;
-        case 'Enter':
-          e.preventDefault();
-          if (filteredCommands[selectedIndex]) {
-            filteredCommands[selectedIndex].action();
-          }
-          break;
+      // Open command bar with Cmd+K
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCommandBarOpen(!isCommandBarOpen);
+        return;
+      }
+
+      if (!isCommandBarOpen) return;
+
+      // Close with Escape
+      if (e.key === "Escape") {
+        setCommandBarOpen(false);
+        return;
+      }
+
+      // Navigate with arrow keys
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex((i) => Math.min(i + 1, filteredCommands.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex((i) => Math.max(i - 1, 0));
+      }
+
+      // Execute with Enter
+      if (e.key === "Enter" && filteredCommands[selectedIndex]) {
+        e.preventDefault();
+        filteredCommands[selectedIndex].action();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [filteredCommands, selectedIndex]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isCommandBarOpen, filteredCommands, selectedIndex, setCommandBarOpen]);
 
-  // Reset selection when query changes
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
+  if (!isCommandBarOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={toggleCommandBar}
-      />
-      
-      {/* Command palette */}
-      <div className="relative w-full max-w-xl bg-bg-secondary border border-border-primary rounded-xl shadow-2xl overflow-hidden">
-        {/* Search input */}
-        <div className="flex items-center px-4 border-b border-border-primary">
-          <span className="text-text-muted">⌘</span>
+    <div className="command-bar" onClick={() => setCommandBarOpen(false)}>
+      <div
+        className="command-bar-content animate-slide-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Search Input */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+          <SearchIcon className="w-5 h-5 text-text-tertiary flex-shrink-0" />
           <input
             ref={inputRef}
             type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setSelectedIndex(0);
+            }}
             placeholder="Type a command or search..."
-            className="flex-1 px-3 py-4 bg-transparent text-text-primary placeholder-text-muted outline-none text-sm"
+            className="flex-1 bg-transparent text-text-primary placeholder-text-tertiary outline-none"
           />
-          <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-xs text-text-muted">ESC</kbd>
+          <kbd className="px-2 py-0.5 text-xs bg-background-tertiary text-text-tertiary rounded">
+            ESC
+          </kbd>
         </div>
 
-        {/* Commands list */}
-        <div className="max-h-80 overflow-y-auto">
+        {/* Command List */}
+        <div className="max-h-[300px] overflow-y-auto py-2">
           {filteredCommands.length === 0 ? (
-            <div className="px-4 py-8 text-center text-text-muted text-sm">
+            <div className="px-4 py-8 text-center text-text-tertiary">
               No commands found
             </div>
           ) : (
-            <div className="py-2">
-              {filteredCommands.map((cmd, index) => (
-                <button
-                  key={cmd.id}
-                  onClick={cmd.action}
-                  className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors
-                    ${index === selectedIndex 
-                      ? 'bg-bg-elevated text-text-primary' 
-                      : 'text-text-secondary hover:bg-bg-tertiary'
-                    }`}
-                >
-                  <span className="text-lg">{cmd.icon}</span>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">{cmd.label}</div>
-                    <div className="text-xs text-text-muted">{cmd.description}</div>
+            filteredCommands.map((cmd, index) => (
+              <button
+                key={cmd.id}
+                onClick={cmd.action}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                  index === selectedIndex
+                    ? "bg-surface-hover"
+                    : "hover:bg-surface-hover"
+                }`}
+              >
+                <CategoryIcon category={cmd.category} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-text-primary">{cmd.label}</div>
+                  <div className="text-xs text-text-tertiary truncate">
+                    {cmd.description}
                   </div>
-                  {index === selectedIndex && (
-                    <span className="text-xs text-text-muted">↵</span>
-                  )}
-                </button>
-              ))}
-            </div>
+                </div>
+                {cmd.shortcut && (
+                  <kbd className="px-2 py-0.5 text-xs bg-background-tertiary text-text-tertiary rounded flex-shrink-0">
+                    {cmd.shortcut}
+                  </kbd>
+                )}
+              </button>
+            ))
           )}
         </div>
 
-        {/* Footer hint */}
-        <div className="px-4 py-2 border-t border-border-primary flex items-center gap-4 text-xs text-text-muted">
-          <span><kbd className="px-1 py-0.5 bg-bg-tertiary rounded">↑↓</kbd> Navigate</span>
-          <span><kbd className="px-1 py-0.5 bg-bg-tertiary rounded">↵</kbd> Select</span>
-          <span><kbd className="px-1 py-0.5 bg-bg-tertiary rounded">ESC</kbd> Close</span>
+        {/* Footer */}
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-border text-xs text-text-tertiary">
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 bg-background-tertiary rounded">↑↓</kbd>
+            Navigate
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 bg-background-tertiary rounded">↵</kbd>
+            Select
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 bg-background-tertiary rounded">esc</kbd>
+            Close
+          </span>
         </div>
       </div>
     </div>
   );
+}
+
+// Icons
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
+function CategoryIcon({ category }: { category: "agent" | "task" | "system" }) {
+  const className = "w-4 h-4 text-text-tertiary";
+  
+  switch (category) {
+    case "agent":
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" />
+          <circle cx="12" cy="10" r="3" />
+          <path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662" />
+        </svg>
+      );
+    case "task":
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M9 11l3 3L22 4" />
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+      );
+    case "system":
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+      );
+  }
 }

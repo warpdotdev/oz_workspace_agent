@@ -1,89 +1,103 @@
-import { useAgentStore } from '../store';
-import type { Agent, AgentStatus } from '../types';
+import { useAgentStore } from "@/store/agentStore";
+import { AgentCard } from "./AgentCard";
 
-// Status color mapping
-const statusColors: Record<AgentStatus, string> = {
-  running: 'bg-status-running',
-  error: 'bg-status-error',
-  idle: 'bg-status-idle',
-  paused: 'bg-status-paused',
-};
+export function Sidebar() {
+  const { agents, toggleCommandBar } = useAgentStore();
 
-function StatusBadge({ status }: { status: AgentStatus }) {
-  return (
-    <span 
-      className={`inline-block w-2 h-2 rounded-full ${statusColors[status]}`}
-      title={status}
-    />
-  );
-}
-
-function AgentListItem({ agent, isSelected, onClick }: { 
-  agent: Agent; 
-  isSelected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full px-3 py-2 text-left rounded-lg transition-colors flex items-center gap-3
-        ${isSelected 
-          ? 'bg-bg-elevated text-text-primary' 
-          : 'hover:bg-bg-tertiary text-text-secondary hover:text-text-primary'
-        }`}
-    >
-      <StatusBadge status={agent.status} />
-      <div className="flex-1 min-w-0">
-        <div className="font-medium truncate text-sm">{agent.name}</div>
-        {agent.currentTask && (
-          <div className="text-xs text-text-muted truncate">{agent.currentTask}</div>
-        )}
-      </div>
-    </button>
-  );
-}
-
-export default function Sidebar() {
-  const { agents, selectedAgentId, selectAgent } = useAgentStore();
+  const runningCount = agents.filter((a) => a.status === "running").length;
+  const errorCount = agents.filter((a) => a.status === "error").length;
 
   return (
-    <aside className="w-60 flex-shrink-0 bg-bg-secondary border-r border-border-primary flex flex-col pt-8">
+    <aside className="w-sidebar flex-shrink-0 bg-surface border-r border-border flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pb-4 border-b border-border-primary">
-        <h1 className="text-lg font-semibold text-text-primary">AgentOS</h1>
-        <p className="text-xs text-text-muted mt-1">Mission Control</p>
+      <div className="panel-header">
+        <div>
+          <h1 className="text-lg font-semibold text-text-primary">AgentOS</h1>
+          <p className="text-xs text-text-tertiary mt-0.5">
+            {agents.length} agents • {runningCount} running
+            {errorCount > 0 && (
+              <span className="text-status-error ml-1">• {errorCount} error</span>
+            )}
+          </p>
+        </div>
+        <button
+          onClick={() => toggleCommandBar()}
+          className="btn-ghost p-2"
+          title="Quick Commands (⌘K)"
+        >
+          <CommandIcon className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Agent List */}
-      <div className="flex-1 overflow-y-auto p-2">
-        <div className="px-2 py-2 text-xs font-medium text-text-muted uppercase tracking-wider">
-          Agents ({agents.length})
-        </div>
-        <div className="space-y-1">
-          {agents.length === 0 ? (
-            <div className="px-3 py-4 text-sm text-text-muted text-center">
-              No agents running
-            </div>
-          ) : (
-            agents.map((agent) => (
-              <AgentListItem
-                key={agent.id}
-                agent={agent}
-                isSelected={selectedAgentId === agent.id}
-                onClick={() => selectAgent(agent.id)}
-              />
-            ))
-          )}
-        </div>
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {agents.length === 0 ? (
+          <div className="text-center py-8 text-text-tertiary">
+            <AgentEmptyIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">No agents configured</p>
+            <p className="text-xs mt-1">Press ⌘K to add an agent</p>
+          </div>
+        ) : (
+          agents.map((agent) => <AgentCard key={agent.id} agent={agent} />)
+        )}
       </div>
 
-      {/* Footer with Cmd+K hint */}
-      <div className="p-3 border-t border-border-primary">
-        <div className="flex items-center justify-center gap-2 text-xs text-text-muted">
-          <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-secondary">⌘K</kbd>
-          <span>Quick actions</span>
-        </div>
+      {/* Footer */}
+      <div className="border-t border-border p-3">
+        <button
+          onClick={() => toggleCommandBar()}
+          className="w-full btn-secondary text-sm"
+        >
+          <PlusIcon className="w-4 h-4" />
+          Add Agent
+        </button>
       </div>
     </aside>
+  );
+}
+
+// Icons
+function CommandIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function AgentEmptyIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+    </svg>
   );
 }

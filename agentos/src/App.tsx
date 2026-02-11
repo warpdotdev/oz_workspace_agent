@@ -1,54 +1,53 @@
-import { useEffect } from 'react';
-import { useAgentStore } from './store';
-import { useMockSimulation } from './hooks';
-
-// Layout components
-import Sidebar from './components/Sidebar';
-import MainPanel from './components/MainPanel';
-import ActivityPanel from './components/ActivityPanel';
-import CommandBar from './components/CommandBar';
+import { useEffect } from "react";
+import { Sidebar } from "@/components/Sidebar";
+import { MainPanel } from "@/components/MainPanel";
+import { ActivityPanel } from "@/components/ActivityPanel";
+import { CommandBar } from "@/components/CommandBar";
+import { useAgentStore } from "@/store/agentStore";
+import {
+  generateMockAgents,
+  mockSimulator,
+} from "@/lib/mockAgentService";
 
 function App() {
-  const { isCommandBarOpen, toggleCommandBar } = useAgentStore();
-  
-  // Initialize mock data simulation
-  useMockSimulation();
+  const { setAgents, agents, addActivity, updateAgent, addMetrics } =
+    useAgentStore();
 
-  // Global keyboard shortcut for Cmd+K
+  // Initialize with mock agents on first load
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        toggleCommandBar();
-      }
-      if (e.key === 'Escape' && isCommandBarOpen) {
-        toggleCommandBar();
-      }
-    };
+    const initialAgents = generateMockAgents(3);
+    // Set one agent to running for demo purposes
+    initialAgents[0].status = "running";
+    initialAgents[0].currentTask = "Analyzing market trends for Q1 2026";
+    setAgents(initialAgents);
+  }, [setAgents]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isCommandBarOpen, toggleCommandBar]);
+  // Set up mock simulator when agents change
+  useEffect(() => {
+    mockSimulator.setAgents(agents);
+    mockSimulator.onActivity(addActivity);
+    mockSimulator.onStatusChange((agentId, status) => {
+      updateAgent(agentId, { status });
+    });
+    mockSimulator.onMetrics((agentId, metrics) => {
+      addMetrics(agentId, metrics);
+    });
+    mockSimulator.start(3000); // Generate activity every 3 seconds
+
+    return () => {
+      mockSimulator.stop();
+    };
+  }, [agents, addActivity, updateAgent, addMetrics]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-bg-primary">
-      {/* Draggable title bar area for macOS */}
-      <div 
-        className="fixed top-0 left-0 right-0 h-7 z-50" 
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      />
-      
-      {/* Sidebar - Agent List */}
+    <div className="h-screen flex bg-background-primary text-text-primary">
+      {/* Three-panel layout */}
       <Sidebar />
-      
-      {/* Main Content Area */}
       <MainPanel />
-      
-      {/* Activity Panel */}
       <ActivityPanel />
-      
+
       {/* Command Bar Modal */}
-      {isCommandBarOpen && <CommandBar />}
+      <CommandBar />
     </div>
   );
 }

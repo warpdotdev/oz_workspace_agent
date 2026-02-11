@@ -1,4 +1,6 @@
-export { default as Sidebar } from './Sidebar';
-export { default as MainPanel } from './MainPanel';
-export { default as ActivityPanel } from './ActivityPanel';
-export { default as CommandBar } from './CommandBar';
+export { StatusBadge, StatusDot } from "./StatusBadge";
+export { AgentCard } from "./AgentCard";
+export { Sidebar } from "./Sidebar";
+export { MainPanel } from "./MainPanel";
+export { ActivityPanel } from "./ActivityPanel";
+export { CommandBar } from "./CommandBar";
