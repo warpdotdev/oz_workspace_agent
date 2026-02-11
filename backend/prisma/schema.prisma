@@ -139,6 +139,10 @@ model Task {
   requiresReview    Boolean   @default(false) @map("requires_review") // Human review flag for low confidence
   reviewedAt        DateTime? @map("reviewed_at")         // When human reviewed
   reviewedById      String?   @map("reviewed_by_id")      // Who reviewed
+  reviewNotes       String?   @map("review_notes")        // Human reviewer's notes/feedback
+  wasOverridden     Boolean   @default(false) @map("was_overridden") // Whether human overrode agent decision
+  calibrationFeedback Json?   @map("calibration_feedback") // Structured feedback for confidence calibration
+  firstAttemptAt    DateTime? @map("first_attempt_at")    // When task was first attempted (for retry velocity)
   
   // Dependencies
   parentTaskId String?   @map("parent_task_id")
