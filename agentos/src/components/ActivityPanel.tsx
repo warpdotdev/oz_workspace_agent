@@ -36,14 +36,9 @@ const activityTypeConfig: Record<
     color: "text-status-running",
     label: "Complete",
   },
-  user_input: {
-    icon: UserIcon,
-    color: "text-accent-secondary",
-    label: "Input",
-  },
 };
 
-function formatTime(date: Date): string {
+function formatTime(date: string | Date): string {
   return new Date(date).toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
@@ -115,7 +110,7 @@ export function ActivityPanel() {
                   : "text-text-tertiary hover:text-text-secondary"
               }`}
             >
-              {selectedAgent.name}
+              {selectedAgent.config.name}
             </button>
           </div>
         )}
@@ -192,15 +187,6 @@ function CompleteIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
       <polyline points="22 4 12 14.01 9 11.01" />
-    </svg>
-  );
-}
-
-function UserIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
     </svg>
   );
 }

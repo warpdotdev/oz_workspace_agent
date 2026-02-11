@@ -6,23 +6,10 @@ interface AgentCardProps {
   agent: Agent;
 }
 
-function formatRuntime(startedAt: Date | null): string {
-  if (!startedAt) return "-";
-  const diff = Date.now() - new Date(startedAt).getTime();
-  const hours = Math.floor(diff / 3600000);
-  const minutes = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
-
 function formatTokens(tokens: number): string {
   if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
   if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
   return tokens.toString();
-}
-
-function formatCost(cost: number): string {
-  return `$${cost.toFixed(2)}`;
 }
 
 export function AgentCard({ agent }: AgentCardProps) {
@@ -41,9 +28,9 @@ export function AgentCard({ agent }: AgentCardProps) {
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1 min-w-0">
           <h3 className="font-medium text-text-primary truncate">
-            {agent.name}
+            {agent.config.name}
           </h3>
-          <p className="text-xs text-text-tertiary mt-0.5">{agent.framework}</p>
+          <p className="text-xs text-text-tertiary mt-0.5">{agent.config.framework}</p>
         </div>
         <StatusBadge status={agent.status} size="sm" />
       </div>
@@ -57,15 +44,11 @@ export function AgentCard({ agent }: AgentCardProps) {
       <div className="flex items-center gap-4 text-xs text-text-tertiary">
         <div className="flex items-center gap-1">
           <ClockIcon className="w-3.5 h-3.5" />
-          <span>{formatRuntime(agent.startedAt)}</span>
+          <span>{agent.runtime}ms</span>
         </div>
         <div className="flex items-center gap-1">
           <TokenIcon className="w-3.5 h-3.5" />
           <span>{formatTokens(agent.tokensUsed)}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <CostIcon className="w-3.5 h-3.5" />
-          <span>{formatCost(agent.estimatedCost)}</span>
         </div>
       </div>
     </div>
@@ -104,17 +87,3 @@ function TokenIcon({ className }: { className?: string }) {
   );
 }
 
-function CostIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <line x1="12" y1="1" x2="12" y2="23" />
-      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-    </svg>
-  );
-}

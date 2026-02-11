@@ -29,12 +29,12 @@ export function MainPanel() {
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-semibold text-text-primary">
-                {selectedAgent.name}
+                {selectedAgent.config.name}
               </h2>
               <StatusBadge status={selectedAgent.status} />
             </div>
             <p className="text-sm text-text-tertiary mt-1">
-              {selectedAgent.framework} • {selectedAgent.config.model}
+              {selectedAgent.config.framework} • {selectedAgent.config.model}
             </p>
           </div>
           <div className="flex gap-2">
@@ -88,25 +88,20 @@ export function MainPanel() {
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <StatCard
             label="Tokens Used"
             value={formatTokens(selectedAgent.tokensUsed)}
             icon={<TokenIcon className="w-5 h-5" />}
           />
           <StatCard
-            label="Estimated Cost"
-            value={`$${selectedAgent.estimatedCost.toFixed(2)}`}
-            icon={<CostIcon className="w-5 h-5" />}
-          />
-          <StatCard
             label="Runtime"
-            value={formatRuntime(selectedAgent.startedAt)}
+            value={`${(selectedAgent.runtime / 1000).toFixed(1)}s`}
             icon={<ClockIcon className="w-5 h-5" />}
           />
           <StatCard
-            label="Last Heartbeat"
-            value={formatTime(selectedAgent.lastHeartbeat)}
+            label="Last Activity"
+            value={formatTime(selectedAgent.lastActivity)}
             icon={<HeartIcon className="w-5 h-5" />}
           />
         </div>
@@ -203,7 +198,6 @@ function DashboardOverview() {
     running: agents.filter((a) => a.status === "running").length,
     error: agents.filter((a) => a.status === "error").length,
     totalTokens: agents.reduce((sum, a) => sum + a.tokensUsed, 0),
-    totalCost: agents.reduce((sum, a) => sum + a.estimatedCost, 0),
   };
 
   return (
@@ -233,9 +227,9 @@ function DashboardOverview() {
             highlight={stats.error > 0 ? "error" : undefined}
           />
           <StatCard
-            label="Total Cost"
-            value={`$${stats.totalCost.toFixed(2)}`}
-            icon={<CostIcon className="w-5 h-5" />}
+            label="Total Tokens"
+            value={formatTokens(stats.totalTokens)}
+            icon={<TokenIcon className="w-5 h-5" />}
           />
         </div>
 
@@ -263,7 +257,7 @@ function DashboardOverview() {
                 <div key={agent.id} className="card">
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-text-primary">
-                      {agent.name}
+                      {agent.config.name}
                     </span>
                     <StatusBadge status={agent.status} size="sm" />
                   </div>
@@ -321,16 +315,7 @@ function formatTokens(tokens: number): string {
   return tokens.toString();
 }
 
-function formatRuntime(startedAt: Date | null): string {
-  if (!startedAt) return "-";
-  const diff = Date.now() - new Date(startedAt).getTime();
-  const hours = Math.floor(diff / 3600000);
-  const minutes = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
-
-function formatTime(date: Date): string {
+function formatTime(date: string | Date): string {
   return new Date(date).toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
@@ -370,15 +355,6 @@ function TokenIcon({ className }: { className?: string }) {
       <path d="M12 2L2 7l10 5 10-5-10-5z" />
       <path d="M2 17l10 5 10-5" />
       <path d="M2 12l10 5 10-5" />
-    </svg>
-  );
-}
-
-function CostIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <line x1="12" y1="1" x2="12" y2="23" />
-      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
     </svg>
   );
 }
