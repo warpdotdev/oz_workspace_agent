@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAgentStore } from "@/store/agentStore";
-import { createMockAgent, generateMockActivity } from "@/lib/mockAgentService";
+import { createAgent, dispatchTask } from "@/lib/tauri";
+import type { AgentFramework } from "@/types";
 
 interface CommandItem {
   id: string;
@@ -12,7 +13,7 @@ interface CommandItem {
 }
 
 export function CommandBar() {
-  const { isCommandBarOpen, setCommandBarOpen, agents, addAgent, updateAgent, addActivity, selectedAgentId } =
+  const { isCommandBarOpen, setCommandBarOpen, agents, addAgent, updateAgent, selectedAgentId } =
     useAgentStore();
   const [search, setSearch] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -25,11 +26,25 @@ export function CommandBar() {
       description: "Create a new AI agent",
       shortcut: "⌘N",
       category: "agent",
-      action: () => {
-        const newAgent = createMockAgent(agents.length);
-        newAgent.status = "idle";
-        addAgent(newAgent);
-        setCommandBarOpen(false);
+      action: async () => {
+        try {
+          const frameworks: AgentFramework[] = ["openai", "langchain", "crewai", "custom"];
+          const randomFramework = frameworks[Math.floor(Math.random() * frameworks.length)];
+          
+          const newAgent = await createAgent({
+            name: `Agent ${agents.length + 1}`,
+            description: `New agent created at ${new Date().toLocaleTimeString()}`,
+            framework: randomFramework,
+            model: "gpt-4",
+            maxTokens: 4096,
+            temperature: 0.7,
+          });
+          
+          addAgent(newAgent);
+          setCommandBarOpen(false);
+        } catch (error) {
+          console.error('[CommandBar] Failed to create agent:', error);
+        }
       },
     },
     {
@@ -38,24 +53,18 @@ export function CommandBar() {
       description: "Send a task to the selected agent",
       shortcut: "⌘D",
       category: "task",
-      action: () => {
+      action: async () => {
         if (selectedAgentId) {
-          updateAgent(selectedAgentId, { status: "running" });
-          const agent = agents.find((a) => a.id === selectedAgentId);
-          if (agent) {
-            addActivity({
-              id: `${Date.now()}`,
+          try {
+            await dispatchTask({
               agentId: selectedAgentId,
-              agentName: agent.config.name,
-              type: "action",
-              eventType: "action",
-              content: "New task dispatched by user",
-              message: "New task dispatched by user",
-              timestamp: new Date().toISOString(),
+              instruction: "Process incoming request and generate response",
             });
+            setCommandBarOpen(false);
+          } catch (error) {
+            console.error('[CommandBar] Failed to dispatch task:', error);
           }
         }
-        setCommandBarOpen(false);
       },
     },
     {
@@ -98,17 +107,19 @@ export function CommandBar() {
       },
     },
     {
-      id: "simulate-activity",
-      label: "Simulate Activity",
-      description: "Generate mock agent activity",
+      id: "refresh-agents",
+      label: "Refresh Agents",
+      description: "Reload agents from backend",
       category: "system",
-      action: () => {
-        const runningAgents = agents.filter((a) => a.status === "running");
-        if (runningAgents.length > 0) {
-          const agent = runningAgents[Math.floor(Math.random() * runningAgents.length)];
-          addActivity(generateMockActivity(agent));
+      action: async () => {
+        try {
+          const { getAgents } = await import('@/lib/tauri');
+          const updatedAgents = await getAgents();
+          useAgentStore.getState().setAgents(updatedAgents);
+          setCommandBarOpen(false);
+        } catch (error) {
+          console.error('[CommandBar] Failed to refresh agents:', error);
         }
-        setCommandBarOpen(false);
       },
     },
   ];
