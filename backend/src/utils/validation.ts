@@ -68,6 +68,7 @@ export const createTaskSchema = z.object({
   input: z.record(z.unknown()).default({}),
   config: z.record(z.unknown()).default({}),
   maxRetries: z.number().int().min(0).max(10).default(3),
+  requiresReview: z.boolean().default(false),
 });
 
 export const updateTaskSchema = z.object({
@@ -80,6 +81,34 @@ export const updateTaskSchema = z.object({
   config: z.record(z.unknown()).optional(),
   output: z.record(z.unknown()).optional(),
   errorMessage: z.string().max(2000).optional(),
+  confidenceScore: z.number().min(0).max(1).optional(),
+  reasoning: z.string().max(10000).optional(),
+  requiresReview: z.boolean().optional(),
+});
+
+export const taskQuerySchema = paginationSchema.extend({
+  status: z.nativeEnum(TaskStatus).optional(),
+  priority: z.nativeEnum(TaskPriority).optional(),
+  agentId: z.string().cuid().optional(),
+  requiresReview: z.coerce.boolean().optional(),
+  search: z.string().max(255).optional(),
+  sortBy: z.enum(['title', 'createdAt', 'updatedAt', 'priority', 'status']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export const assignTaskSchema = z.object({
+  agentId: z.string().cuid().nullable(),
+});
+
+export const completeTaskSchema = z.object({
+  output: z.record(z.unknown()).optional(),
+  confidenceScore: z.number().min(0).max(1).optional(),
+  reasoning: z.string().max(10000).optional(),
+});
+
+export const failTaskSchema = z.object({
+  errorMessage: z.string().min(1).max(2000),
+  reasoning: z.string().max(10000).optional(),
 });
 
 // Event query schema
@@ -115,6 +144,10 @@ export type UpdateAgentInput = z.infer<typeof updateAgentSchema>;
 export type AgentQueryParams = z.infer<typeof agentQuerySchema>;
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+export type TaskQueryParams = z.infer<typeof taskQuerySchema>;
+export type AssignTaskInput = z.infer<typeof assignTaskSchema>;
+export type CompleteTaskInput = z.infer<typeof completeTaskSchema>;
+export type FailTaskInput = z.infer<typeof failTaskSchema>;
 export type EventQueryParams = z.infer<typeof eventQuerySchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;

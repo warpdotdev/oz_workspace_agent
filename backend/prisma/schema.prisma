@@ -123,6 +123,11 @@ model Task {
   retryCount  Int        @default(0) @map("retry_count")
   maxRetries  Int        @default(3) @map("max_retries")
   
+  // Trust and transparency fields
+  confidenceScore Float?   @map("confidence_score") // 0.0 to 1.0 confidence level
+  reasoning      String?  @db.Text  // Agent's reasoning for task completion
+  requiresReview Boolean  @default(false) @map("requires_review") // Flag for human review
+  
   // Dependencies
   parentTaskId String?   @map("parent_task_id")
   
