@@ -166,6 +166,7 @@ export default function TasksPage() {
   const columns: Array<{ status: TaskStatus; title: string }> = [
     { status: 'TODO', title: 'To Do' },
     { status: 'IN_PROGRESS', title: 'In Progress' },
+    { status: 'REVIEW', title: 'Review' },
     { status: 'DONE', title: 'Done' },
   ]
 

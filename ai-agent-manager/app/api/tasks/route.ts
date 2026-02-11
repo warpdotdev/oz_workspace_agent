@@ -27,21 +27,21 @@ export async function GET(request: NextRequest) {
     const projectId = searchParams.get('projectId')
     const agentId = searchParams.get('agentId')
 
-    const where: {
+const where: {
       createdById: string
-      status?: string
-      priority?: string
+      status?: 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE' | 'CANCELLED'
+      priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
       projectId?: string
       agentId?: string
     } = {
       createdById: session.user.id,
     }
 
-    if (status) {
-      where.status = status
+    if (status && ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'CANCELLED'].includes(status)) {
+      where.status = status as 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE' | 'CANCELLED'
     }
-    if (priority) {
-      where.priority = priority
+    if (priority && ['LOW', 'MEDIUM', 'HIGH', 'URGENT'].includes(priority)) {
+      where.priority = priority as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
     }
     if (projectId) {
       where.projectId = projectId
