@@ -1,0 +1,45 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Agent {
+  id            String   @id @default(cuid())
+  name          String
+  description   String
+  status        String   @default("idle")
+  capabilities  String[]
+  configuration Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  tasks         Task[]
+  
+  @@map("agents")
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  agentId     String
+  title       String
+  description String
+  status      String    @default("pending")
+  priority    String    @default("medium")
+  result      Json?
+  error       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+  
+  agent       Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  
+  @@map("tasks")
+  @@index([agentId])
+}
