@@ -32,6 +32,7 @@ model User {
   auditLogs     AuditLog[]
   tasks         Task[]    @relation("TaskAssignee")
   createdTasks  Task[]    @relation("TaskCreator")
+  reviewedTasks Task[]    @relation("TaskReviewer")  // Tasks this user has reviewed
 
   @@index([email])
   @@map("users")
@@ -93,6 +94,13 @@ model Agent {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
+  // Trust & Transparency fields (design-lead Sprint 1 review)
+  confidenceScore    Float?          @map("confidence_score")  // Agent's confidence level (0.0 - 1.0)
+  reasoningLog       Json?           @map("reasoning_log")     // Structured log of agent reasoning/decisions
+  executionHistory   Json?           @map("execution_history") // History of agent executions with outcomes
+  lastConfidenceAt   DateTime?       @map("last_confidence_at") // When confidence was last calculated
+  requiresReview     Boolean         @default(false) @map("requires_review") // Flag for low-confidence completions
+
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   project       Project?      @relation(fields: [projectId], references: [id])
   conversations Conversation[]
@@ -102,6 +110,7 @@ model Agent {
   @@index([userId])
   @@index([projectId])
   @@index([status])
+  @@index([requiresReview])
   @@map("agents")
 }
 
@@ -137,16 +146,26 @@ model Task {
   updatedAt   DateTime     @updatedAt
   dueDate     DateTime?
 
-  project   Project? @relation(fields: [projectId], references: [id])
-  assignee  User?    @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  createdBy User     @relation("TaskCreator", fields: [createdById], references: [id])
-  agent     Agent?   @relation(fields: [agentId], references: [id])
+  // Trust & Transparency fields (design-lead Sprint 1 review)
+  confidenceScore   Float?    @map("confidence_score")    // Task completion confidence (0.0 - 1.0)
+  reasoningLog      Json?     @map("reasoning_log")       // Agent reasoning for task decisions
+  executionSteps    Json?     @map("execution_steps")     // Step-by-step execution details
+  requiresReview    Boolean   @default(false) @map("requires_review") // Human review flag for low confidence
+  reviewedAt        DateTime? @map("reviewed_at")         // When human reviewed
+  reviewedById      String?   @map("reviewed_by_id")      // Who reviewed
+
+  project    Project? @relation(fields: [projectId], references: [id])
+  assignee   User?    @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdBy  User     @relation("TaskCreator", fields: [createdById], references: [id])
+  agent      Agent?   @relation(fields: [agentId], references: [id])
+  reviewedBy User?    @relation("TaskReviewer", fields: [reviewedById], references: [id])
 
   @@index([projectId])
   @@index([assigneeId])
   @@index([agentId])
   @@index([status])
   @@index([priority])
+  @@index([requiresReview])
   @@map("tasks")
 }
 

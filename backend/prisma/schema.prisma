@@ -21,9 +21,10 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  agents       Agent[]
-  tasks        Task[]
-  auditLogs    AuditLog[]
+  agents        Agent[]
+  tasks         Task[]
+  reviewedTasks Task[]     @relation("TaskReviewer")  // Tasks this user has reviewed
+  auditLogs     AuditLog[]
 
   @@map("users")
 }
@@ -53,6 +54,13 @@ model Agent {
   avgLatency   Float?      @map("avg_latency")
   totalRuns    Int         @default(0) @map("total_runs")
   
+  // Trust & Transparency fields (design-lead Sprint 1 review)
+  confidenceScore    Float?    @map("confidence_score")    // Agent's confidence level (0.0 - 1.0)
+  reasoningLog       Json?     @map("reasoning_log")       // Structured log of agent reasoning/decisions
+  executionHistory   Json?     @map("execution_history")   // History of agent executions with outcomes
+  lastConfidenceAt   DateTime? @map("last_confidence_at")  // When confidence was last calculated
+  requiresReview     Boolean   @default(false) @map("requires_review") // Flag for low-confidence completions
+  
   // Ownership and timestamps
   ownerId      String      @map("owner_id")
   createdAt    DateTime    @default(now()) @map("created_at")
@@ -68,6 +76,7 @@ model Agent {
   @@index([ownerId])
   @@index([status])
   @@index([type])
+  @@index([requiresReview])
   @@map("agents")
 }
 
@@ -123,6 +132,14 @@ model Task {
   retryCount  Int        @default(0) @map("retry_count")
   maxRetries  Int        @default(3) @map("max_retries")
   
+  // Trust & Transparency fields (design-lead Sprint 1 review)
+  confidenceScore   Float?    @map("confidence_score")    // Task completion confidence (0.0 - 1.0)
+  reasoningLog      Json?     @map("reasoning_log")       // Agent reasoning for task decisions
+  executionSteps    Json?     @map("execution_steps")     // Step-by-step execution details
+  requiresReview    Boolean   @default(false) @map("requires_review") // Human review flag for low confidence
+  reviewedAt        DateTime? @map("reviewed_at")         // When human reviewed
+  reviewedById      String?   @map("reviewed_by_id")      // Who reviewed
+  
   // Dependencies
   parentTaskId String?   @map("parent_task_id")
   
@@ -135,6 +152,7 @@ model Task {
   // Relations
   agent       Agent?     @relation(fields: [agentId], references: [id], onDelete: SetNull)
   createdBy   User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  reviewedBy  User?      @relation("TaskReviewer", fields: [reviewedById], references: [id])
   parentTask  Task?      @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
   subtasks    Task[]     @relation("TaskHierarchy")
   events      Event[]
@@ -142,6 +160,7 @@ model Task {
   @@index([agentId])
   @@index([status])
   @@index([createdById])
+  @@index([requiresReview])
   @@map("tasks")
 }
 
