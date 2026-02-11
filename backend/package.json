@@ -4,7 +4,7 @@
   "description": "Backend API for Simple To-Do App",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/db/schema.sql dist/db/",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts"
   },

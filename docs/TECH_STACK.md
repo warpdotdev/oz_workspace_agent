@@ -126,8 +126,8 @@ npm test
 
 ## Next Steps
 1. ✅ Define tech stack and project structure (this document)
-2. Set up project foundation with initial files
-3. Build backend API with SQLite
-4. Create frontend UI components
-5. Add styling and polish
-6. Testing and documentation
+2. ✅ Set up project foundation with initial files
+3. ✅ Build backend API with SQLite
+4. ✅ Create frontend UI components
+5. ✅ Add styling and polish
+6. ✅ Testing and documentation
