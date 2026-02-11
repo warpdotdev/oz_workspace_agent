@@ -11,7 +11,11 @@ interface CommandItem {
   action: () => void;
 }
 
-export function CommandBar() {
+interface CommandBarProps {
+  onOpenTaskDispatch?: () => void;
+}
+
+export function CommandBar({ onOpenTaskDispatch }: CommandBarProps) {
   const { isCommandBarOpen, setCommandBarOpen, agents, addAgent, updateAgent, addActivity, selectedAgentId } =
     useAgentStore();
   const [search, setSearch] = useState("");
@@ -35,27 +39,14 @@ export function CommandBar() {
     {
       id: "dispatch-task",
       label: "Dispatch Task",
-      description: "Send a task to the selected agent",
+      description: "Open task dispatch panel to send a task to an agent",
       shortcut: "⌘D",
       category: "task",
       action: () => {
-        if (selectedAgentId) {
-          updateAgent(selectedAgentId, { status: "running" });
-          const agent = agents.find((a) => a.id === selectedAgentId);
-          if (agent) {
-            addActivity({
-              id: `${Date.now()}`,
-              agentId: selectedAgentId,
-              agentName: agent.config.name,
-              type: "action",
-              eventType: "action",
-              content: "New task dispatched by user",
-              message: "New task dispatched by user",
-              timestamp: new Date().toISOString(),
-            });
-          }
-        }
         setCommandBarOpen(false);
+        if (onOpenTaskDispatch) {
+          onOpenTaskDispatch();
+        }
       },
     },
     {

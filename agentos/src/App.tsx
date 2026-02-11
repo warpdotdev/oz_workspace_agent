@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { MainPanel } from "@/components/MainPanel";
 import { ActivityPanel } from "@/components/ActivityPanel";
 import { CommandBar } from "@/components/CommandBar";
+import { TaskDispatchPanel } from "@/components/TaskDispatchPanel";
 import { useAgentStore } from "@/store/agentStore";
 import {
   generateMockAgents,
@@ -12,6 +13,7 @@ import {
 function App() {
   const { setAgents, agents, addActivity, updateAgent, addMetrics } =
     useAgentStore();
+  const [isTaskDispatchOpen, setIsTaskDispatchOpen] = useState(false);
 
   // Initialize with mock agents on first load
   useEffect(() => {
@@ -47,7 +49,13 @@ function App() {
       <ActivityPanel />
 
       {/* Command Bar Modal */}
-      <CommandBar />
+      <CommandBar onOpenTaskDispatch={() => setIsTaskDispatchOpen(true)} />
+
+      {/* Task Dispatch Panel */}
+      <TaskDispatchPanel
+        isOpen={isTaskDispatchOpen}
+        onClose={() => setIsTaskDispatchOpen(false)}
+      />
     </div>
   );
 }
