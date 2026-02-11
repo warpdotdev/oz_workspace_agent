@@ -8,8 +8,10 @@ import { TaskModal } from '@/components/tasks/task-modal'
 import { TaskCard } from '@/components/tasks/task-card'
 import { TaskFilters, CardDensity } from '@/components/tasks/task-filters'
 import { Button } from '@/components/ui/button'
-import { Plus, RefreshCw } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Plus, RefreshCw, Wifi, WifiOff } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTaskEvents } from '@/hooks/use-task-events'
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -32,6 +34,32 @@ export default function TasksPage() {
       },
     })
   )
+
+  // Real-time task event handlers
+  const handleTaskCreatedEvent = useCallback((task: Task) => {
+    setTasks((prev) => {
+      // Avoid duplicates (in case optimistic update already added it)
+      if (prev.some((t) => t.id === task.id)) {
+        return prev.map((t) => (t.id === task.id ? task : t))
+      }
+      return [...prev, task]
+    })
+  }, [])
+
+  const handleTaskUpdatedEvent = useCallback((task: Task) => {
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)))
+  }, [])
+
+  const handleTaskDeletedEvent = useCallback((taskId: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId))
+  }, [])
+
+  // SSE connection for real-time updates
+  const { isConnected, reconnect } = useTaskEvents({
+    onTaskCreated: handleTaskCreatedEvent,
+    onTaskUpdated: handleTaskUpdatedEvent,
+    onTaskDeleted: handleTaskDeletedEvent,
+  })
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -62,10 +90,7 @@ export default function TasksPage() {
   useEffect(() => {
     fetchTasks()
     fetchAgents()
-
-    // Poll for updates every 5 seconds
-    const interval = setInterval(fetchTasks, 5000)
-    return () => clearInterval(interval)
+    // No longer need polling - real-time updates via SSE
   }, [fetchTasks, fetchAgents])
 
   const handleCreateTask = async (taskData: CreateTaskInput) => {
@@ -224,19 +249,35 @@ export default function TasksPage() {
               Manage your tasks with drag-and-drop
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => fetchTasks()}
-              title="Refresh"
+          <div className="flex items-center gap-3">
+            <Badge
+              variant={isConnected ? 'default' : 'secondary'}
+              className={`flex items-center gap-1 ${isConnected ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'}`}
+              title={isConnected ? 'Real-time updates active' : 'Reconnecting...'}
             >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button onClick={() => setIsModalOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Task
-            </Button>
+              {isConnected ? (
+                <><Wifi className="h-3 w-3" /> Live</>
+              ) : (
+                <><WifiOff className="h-3 w-3" /> Offline</>
+              )}
+            </Badge>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  fetchTasks()
+                  if (!isConnected) reconnect()
+                }}
+                title="Refresh & reconnect"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button onClick={() => setIsModalOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Task
+              </Button>
+            </div>
           </div>
         </div>
 

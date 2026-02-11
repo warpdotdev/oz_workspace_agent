@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { z } from 'zod'
+import { emitTaskUpdated, emitTaskDeleted } from '@/lib/task-events'
 
 const updateTaskSchema = z.object({
   title: z.string().min(1, 'Title is required').optional(),
@@ -116,6 +117,9 @@ export async function PATCH(
       },
     })
 
+    // Emit real-time event for task update
+    emitTaskUpdated(session.user.id, task.id, task)
+
     return NextResponse.json({ task })
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -163,6 +167,9 @@ export async function DELETE(
     await db.task.delete({
       where: { id },
     })
+
+    // Emit real-time event for task deletion
+    emitTaskDeleted(session.user.id, id)
 
     return NextResponse.json({ success: true })
   } catch (error) {
