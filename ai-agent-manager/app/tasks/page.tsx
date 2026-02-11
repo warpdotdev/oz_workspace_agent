@@ -1,0 +1,238 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { Task, TaskStatus, CreateTaskInput } from '@/types/task'
+import { KanbanColumn } from '@/components/tasks/kanban-column'
+import { TaskModal } from '@/components/tasks/task-modal'
+import { TaskCard } from '@/components/tasks/task-card'
+import { Button } from '@/components/ui/button'
+import { Plus, RefreshCw } from 'lucide-react'
+import { toast } from 'sonner'
+
+export default function TasksPage() {
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | undefined>()
+  const [activeTask, setActiveTask] = useState<Task | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  )
+
+  const fetchTasks = useCallback(async () => {
+    try {
+      const response = await fetch('/api/tasks')
+      if (!response.ok) throw new Error('Failed to fetch tasks')
+      const data = await response.json()
+      setTasks(data.tasks)
+    } catch (error) {
+      console.error('Error fetching tasks:', error)
+      toast.error('Failed to load tasks')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  const fetchAgents = useCallback(async () => {
+    try {
+      const response = await fetch('/api/agents')
+      if (response.ok) {
+        const data = await response.json()
+        setAgents(data.agents?.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })) || [])
+      }
+    } catch (error) {
+      console.error('Error fetching agents:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchTasks()
+    fetchAgents()
+
+    // Poll for updates every 5 seconds
+    const interval = setInterval(fetchTasks, 5000)
+    return () => clearInterval(interval)
+  }, [fetchTasks, fetchAgents])
+
+  const handleCreateTask = async (taskData: CreateTaskInput) => {
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(taskData),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create task')
+      }
+
+      const { task } = await response.json()
+      setTasks((prev) => [...prev, task])
+      toast.success('Task created successfully')
+    } catch (error) {
+      console.error('Error creating task:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to create task')
+      throw error
+    }
+  }
+
+  const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update task')
+      }
+
+      const { task } = await response.json()
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? task : t)))
+      return task
+    } catch (error) {
+      console.error('Error updating task:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to update task')
+      throw error
+    }
+  }
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const task = tasks.find((t) => t.id === event.active.id)
+    setActiveTask(task || null)
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveTask(null)
+
+    if (!over) return
+
+    const taskId = active.id as string
+    const newStatus = over.id as TaskStatus
+
+    const task = tasks.find((t) => t.id === taskId)
+    if (!task || task.status === newStatus) return
+
+    // Optimistic update
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
+    )
+
+    try {
+      await handleUpdateTask(taskId, { status: newStatus })
+      toast.success(`Task moved to ${newStatus.replace('_', ' ').toLowerCase()}`)
+    } catch {
+      // Revert on error
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, status: task.status } : t))
+      )
+    }
+  }
+
+  const handleTaskClick = (task: Task) => {
+    setEditingTask(task)
+    setIsModalOpen(true)
+  }
+
+  const handleModalSave = async (taskData: CreateTaskInput) => {
+    if (editingTask) {
+      await handleUpdateTask(editingTask.id, taskData)
+      toast.success('Task updated successfully')
+    } else {
+      await handleCreateTask(taskData)
+    }
+  }
+
+  const handleModalClose = () => {
+    setIsModalOpen(false)
+    setEditingTask(undefined)
+  }
+
+  const getTasksByStatus = (status: TaskStatus) => {
+    return tasks.filter((task) => task.status === status)
+  }
+
+  const columns: Array<{ status: TaskStatus; title: string }> = [
+    { status: 'TODO', title: 'To Do' },
+    { status: 'IN_PROGRESS', title: 'In Progress' },
+    { status: 'DONE', title: 'Done' },
+  ]
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-lg">Loading tasks...</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-50 dark:bg-black p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">Task Board</h1>
+            <p className="text-zinc-600 dark:text-zinc-400 mt-1">
+              Manage your tasks with drag-and-drop
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => fetchTasks()}
+              title="Refresh"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button onClick={() => setIsModalOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Task
+            </Button>
+          </div>
+        </div>
+
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-6 overflow-x-auto pb-4">
+            {columns.map((column) => (
+              <KanbanColumn
+                key={column.status}
+                status={column.status}
+                title={column.title}
+                tasks={getTasksByStatus(column.status)}
+                onTaskClick={handleTaskClick}
+              />
+            ))}
+          </div>
+
+          <DragOverlay>
+            {activeTask ? <TaskCard task={activeTask} /> : null}
+          </DragOverlay>
+        </DndContext>
+
+        <TaskModal
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          onSave={handleModalSave}
+          task={editingTask}
+          agents={agents}
+        />
+      </div>
+    </div>
+  )
+}
