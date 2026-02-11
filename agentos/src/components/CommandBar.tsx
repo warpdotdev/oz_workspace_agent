@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAgentStore } from "@/store/agentStore";
-import { createMockAgent, generateMockActivity } from "@/lib/mockAgentService";
+import { generateMockActivity } from "@/lib/mockAgentService";
+import { CreateAgentForm } from "./CreateAgentForm";
 
 interface CommandItem {
   id: string;
@@ -12,10 +13,11 @@ interface CommandItem {
 }
 
 export function CommandBar() {
-  const { isCommandBarOpen, setCommandBarOpen, agents, addAgent, updateAgent, addActivity, selectedAgentId } =
+  const { isCommandBarOpen, setCommandBarOpen, agents, updateAgent, addActivity, selectedAgentId } =
     useAgentStore();
   const [search, setSearch] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const commands: CommandItem[] = [
@@ -26,10 +28,8 @@ export function CommandBar() {
       shortcut: "⌘N",
       category: "agent",
       action: () => {
-        const newAgent = createMockAgent(agents.length);
-        newAgent.status = "idle";
-        addAgent(newAgent);
         setCommandBarOpen(false);
+        setShowCreateForm(true);
       },
     },
     {
@@ -164,9 +164,20 @@ export function CommandBar() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isCommandBarOpen, filteredCommands, selectedIndex, setCommandBarOpen]);
 
-  if (!isCommandBarOpen) return null;
-
   return (
+    <>
+      {/* Create Agent Form */}
+      {showCreateForm && (
+        <CreateAgentForm
+          onClose={() => setShowCreateForm(false)}
+          onSuccess={() => {
+            // Form already handles adding agent to store
+          }}
+        />
+      )}
+
+      {/* Command Bar */}
+      {!isCommandBarOpen ? null : (
     <div className="command-bar" onClick={() => setCommandBarOpen(false)}>
       <div
         className="command-bar-content animate-slide-in"
@@ -242,6 +253,8 @@ export function CommandBar() {
         </div>
       </div>
     </div>
+      )}
+    </>
   );
 }
 
