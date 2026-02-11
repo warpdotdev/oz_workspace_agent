@@ -7,6 +7,7 @@ import { compare } from 'bcryptjs'
 import { db } from '@/lib/db'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  // @ts-expect-error Type mismatch between @auth/prisma-adapter and @auth/core versions
   adapter: PrismaAdapter(db),
   session: {
     strategy: 'jwt',
@@ -69,7 +70,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id
-        token.role = (user as any).role
+        token.role = (user as { role?: string }).role
       }
       return token
     },
