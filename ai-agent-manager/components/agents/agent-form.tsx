@@ -1,13 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, ChevronLeft, Check, Loader2 } from "lucide-react";
+import {
+  ChevronRight,
+  ChevronLeft,
+  Check,
+  Loader2,
+  Code,
+  Search,
+  BarChart3,
+  Sparkles,
+  Settings,
+  Zap,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   agentApi,
@@ -28,10 +40,82 @@ const frameworkToType: Record<FrameworkId, AgentType> = {
   custom: "CUSTOM",
 };
 
-interface AgentFormData {
-  // Step 1: Basic Info
+// Agent templates for quick-start
+interface AgentTemplate {
+  id: string;
   name: string;
   description: string;
+  icon: React.ElementType;
+  color: string;
+  type: AgentType;
+  framework: FrameworkId;
+  systemPrompt: string;
+  tools: string[];
+}
+
+const AGENT_TEMPLATES: AgentTemplate[] = [
+  {
+    id: "code-review",
+    name: "Code Review Assistant",
+    description: "Reviews code for bugs, style issues, and best practices",
+    icon: Code,
+    color: "text-purple-500 bg-purple-100 dark:bg-purple-900/30",
+    type: "CODING",
+    framework: "langchain",
+    systemPrompt: "You are an expert code reviewer. Analyze code for bugs, security vulnerabilities, performance issues, and style inconsistencies. Provide actionable feedback with specific line references.",
+    tools: ["code_execution", "file_operations"],
+  },
+  {
+    id: "research",
+    name: "Research Agent",
+    description: "Gathers and synthesizes information from multiple sources",
+    icon: Search,
+    color: "text-blue-500 bg-blue-100 dark:bg-blue-900/30",
+    type: "RESEARCH",
+    framework: "crewai",
+    systemPrompt: "You are a thorough research assistant. Search for information, verify facts from multiple sources, and synthesize findings into clear summaries with citations.",
+    tools: ["web_search", "api_calls"],
+  },
+  {
+    id: "data-analyst",
+    name: "Data Analyst",
+    description: "Analyzes data and generates insights with visualizations",
+    icon: BarChart3,
+    color: "text-green-500 bg-green-100 dark:bg-green-900/30",
+    type: "ANALYSIS",
+    framework: "langchain",
+    systemPrompt: "You are a data analyst. Query databases, perform statistical analysis, identify patterns and trends, and generate clear visualizations and reports.",
+    tools: ["database", "code_execution"],
+  },
+  {
+    id: "general",
+    name: "General Assistant",
+    description: "Versatile agent for everyday tasks and questions",
+    icon: Sparkles,
+    color: "text-amber-500 bg-amber-100 dark:bg-amber-900/30",
+    type: "GENERAL",
+    framework: "openai",
+    systemPrompt: "You are a helpful assistant. Answer questions, help with tasks, and provide useful information in a clear and friendly manner.",
+    tools: ["web_search"],
+  },
+  {
+    id: "custom",
+    name: "Custom Agent",
+    description: "Start from scratch with full control over configuration",
+    icon: Settings,
+    color: "text-gray-500 bg-gray-100 dark:bg-gray-900/30",
+    type: "CUSTOM",
+    framework: "custom",
+    systemPrompt: "",
+    tools: [],
+  },
+];
+
+interface AgentFormData {
+  // Step 1: Basic Info + Template
+  name: string;
+  description: string;
+  templateId: string | null;
   // Step 2: Framework
   framework: FrameworkId | null;
   // Step 3: Advanced Config
@@ -40,14 +124,26 @@ interface AgentFormData {
   config: Record<string, unknown>;
 }
 
+// Validation errors interface
+interface FormErrors {
+  name?: string;
+  description?: string;
+}
+
 const initialFormData: AgentFormData = {
   name: "",
   description: "",
+  templateId: null,
   framework: null,
   systemPrompt: "",
   tools: [],
   config: {},
 };
+
+// Character limits
+const NAME_MIN_LENGTH = 2;
+const NAME_MAX_LENGTH = 50;
+const DESCRIPTION_MAX_LENGTH = 500;
 
 // Available tools for selection
 const AVAILABLE_TOOLS = [
@@ -64,12 +160,79 @@ export function AgentForm() {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<AgentFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
-  const updateFormData = (updates: Partial<AgentFormData>) => {
-    setFormData((prev) => ({ ...prev, ...updates }));
-  };
+  // Validate name field
+  const validateName = useCallback((name: string): string | undefined => {
+    const trimmed = name.trim();
+    if (trimmed.length === 0) {
+      return "Name is required";
+    }
+    if (trimmed.length < NAME_MIN_LENGTH) {
+      return `Name must be at least ${NAME_MIN_LENGTH} characters`;
+    }
+    if (trimmed.length > NAME_MAX_LENGTH) {
+      return `Name must be at most ${NAME_MAX_LENGTH} characters`;
+    }
+    return undefined;
+  }, []);
 
-  const canProceedStep1 = formData.name.trim().length >= 2;
+  // Validate description field
+  const validateDescription = useCallback((desc: string): string | undefined => {
+    if (desc.length > DESCRIPTION_MAX_LENGTH) {
+      return `Description must be at most ${DESCRIPTION_MAX_LENGTH} characters`;
+    }
+    return undefined;
+  }, []);
+
+  // Update form data with validation
+  const updateFormData = useCallback((updates: Partial<AgentFormData>) => {
+    setFormData((prev) => {
+      const newData = { ...prev, ...updates };
+      
+      // Validate updated fields
+      const newErrors: FormErrors = { ...errors };
+      if ("name" in updates) {
+        newErrors.name = validateName(updates.name || "");
+      }
+      if ("description" in updates) {
+        newErrors.description = validateDescription(updates.description || "");
+      }
+      setErrors(newErrors);
+      
+      return newData;
+    });
+  }, [errors, validateName, validateDescription]);
+
+  // Handle field blur for touched state
+  const handleBlur = useCallback((field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  }, []);
+
+  // Apply template
+  const applyTemplate = useCallback((templateId: string) => {
+    const template = AGENT_TEMPLATES.find((t) => t.id === templateId);
+    if (!template) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      templateId,
+      name: prev.name || template.name,
+      description: prev.description || template.description,
+      framework: template.framework,
+      systemPrompt: template.systemPrompt,
+      tools: template.tools,
+    }));
+  }, []);
+
+  // Computed validation states
+  const canProceedStep1 = useMemo(() => {
+    const nameError = validateName(formData.name);
+    const descError = validateDescription(formData.description);
+    return !nameError && !descError;
+  }, [formData.name, formData.description, validateName, validateDescription]);
+
   const canProceedStep2 = formData.framework !== null;
   const canSubmit = canProceedStep1 && canProceedStep2;
 
@@ -98,14 +261,19 @@ export function AgentForm() {
     }
   };
 
-  const toggleTool = (toolId: string) => {
+  const toggleTool = useCallback((toolId: string) => {
     setFormData((prev) => ({
       ...prev,
       tools: prev.tools.includes(toolId)
         ? prev.tools.filter((t) => t !== toolId)
         : [...prev.tools, toolId],
     }));
-  };
+  }, []);
+
+  // Get selected template for preview
+  const selectedTemplate = useMemo(() => {
+    return AGENT_TEMPLATES.find((t) => t.id === formData.templateId);
+  }, [formData.templateId]);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -148,44 +316,165 @@ export function AgentForm() {
         </div>
       </div>
 
-      {/* Step 1: Basic Info */}
+      {/* Step 1: Basic Info + Template Selection */}
       {step === 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Create Your Agent</CardTitle>
-            <CardDescription>
-              Start with a name and description. You can always add more details later.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Agent Name *</Label>
-              <Input
-                id="name"
-                placeholder="e.g., Code Review Assistant"
-                value={formData.name}
-                onChange={(e) => updateFormData({ name: e.target.value })}
-                autoFocus
-              />
-              <p className="text-xs text-muted-foreground">
-                A short, memorable name for your agent
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Describe what this agent will do..."
-                value={formData.description}
-                onChange={(e) => updateFormData({ description: e.target.value })}
-                rows={3}
-              />
-              <p className="text-xs text-muted-foreground">
-                Optional: Help others understand this agent&apos;s purpose
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          {/* Quick Start Templates */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-amber-500" />
+                Quick Start Templates
+              </CardTitle>
+              <CardDescription>
+                Choose a template to get started quickly, or create from scratch
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {AGENT_TEMPLATES.map((template) => {
+                  const TemplateIcon = template.icon;
+                  const isSelected = formData.templateId === template.id;
+                  return (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => applyTemplate(template.id)}
+                      className={cn(
+                        "flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all hover:border-primary/50",
+                        isSelected
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : "border-border"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 w-full">
+                        <div
+                          className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                            template.color
+                          )}
+                        >
+                          <TemplateIcon className="h-4 w-4" />
+                        </div>
+                        {isSelected && (
+                          <Check className="h-4 w-4 text-primary ml-auto" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm">{template.name}</div>
+                        <div className="text-xs text-muted-foreground line-clamp-2">
+                          {template.description}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Template Preview (when selected) */}
+          {selectedTemplate && selectedTemplate.id !== "custom" && (
+            <Card className="border-dashed">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Template Preview
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary">{selectedTemplate.type}</Badge>
+                  <Badge variant="outline">{selectedTemplate.framework}</Badge>
+                  {selectedTemplate.tools.map((tool) => (
+                    <Badge key={tool} variant="outline" className="text-xs">
+                      {tool.replace(/_/g, " ")}
+                    </Badge>
+                  ))}
+                </div>
+                {selectedTemplate.systemPrompt && (
+                  <p className="text-muted-foreground text-xs line-clamp-2">
+                    {selectedTemplate.systemPrompt}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Basic Info Form */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Agent Details</CardTitle>
+              <CardDescription>
+                Customize your agent&apos;s name and description
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="name">Agent Name *</Label>
+                  <span className={cn(
+                    "text-xs",
+                    formData.name.length > NAME_MAX_LENGTH
+                      ? "text-destructive"
+                      : "text-muted-foreground"
+                  )}>
+                    {formData.name.length}/{NAME_MAX_LENGTH}
+                  </span>
+                </div>
+                <Input
+                  id="name"
+                  placeholder="e.g., Code Review Assistant"
+                  value={formData.name}
+                  onChange={(e) => updateFormData({ name: e.target.value })}
+                  onBlur={() => handleBlur("name")}
+                  maxLength={NAME_MAX_LENGTH + 10}
+                  className={cn(
+                    touched.name && errors.name && "border-destructive focus-visible:ring-destructive"
+                  )}
+                  autoFocus
+                />
+                {touched.name && errors.name ? (
+                  <p className="text-xs text-destructive">{errors.name}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    A short, memorable name for your agent
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="description">Description</Label>
+                  <span className={cn(
+                    "text-xs",
+                    formData.description.length > DESCRIPTION_MAX_LENGTH
+                      ? "text-destructive"
+                      : "text-muted-foreground"
+                  )}>
+                    {formData.description.length}/{DESCRIPTION_MAX_LENGTH}
+                  </span>
+                </div>
+                <Textarea
+                  id="description"
+                  placeholder="Describe what this agent will do..."
+                  value={formData.description}
+                  onChange={(e) => updateFormData({ description: e.target.value })}
+                  onBlur={() => handleBlur("description")}
+                  rows={3}
+                  className={cn(
+                    touched.description && errors.description && "border-destructive focus-visible:ring-destructive"
+                  )}
+                />
+                {touched.description && errors.description ? (
+                  <p className="text-xs text-destructive">{errors.description}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Optional: Help others understand this agent&apos;s purpose
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Step 2: Framework Selection */}

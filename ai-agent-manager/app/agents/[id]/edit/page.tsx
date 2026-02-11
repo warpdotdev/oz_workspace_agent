@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +32,11 @@ import {
 } from "@/lib/api-client";
 import { toast } from "sonner";
 
+// Character limits
+const NAME_MIN_LENGTH = 2;
+const NAME_MAX_LENGTH = 50;
+const DESCRIPTION_MAX_LENGTH = 500;
+
 const AGENT_TYPES: { value: AgentType; label: string }[] = [
   { value: "CODING", label: "Coding" },
   { value: "RESEARCH", label: "Research" },
@@ -39,6 +44,11 @@ const AGENT_TYPES: { value: AgentType; label: string }[] = [
   { value: "GENERAL", label: "General" },
   { value: "CUSTOM", label: "Custom" },
 ];
+
+interface FormErrors {
+  name?: string;
+  description?: string;
+}
 
 const AVAILABLE_TOOLS = [
   { id: "web_search", name: "Web Search", description: "Search the web for information" },
@@ -65,6 +75,38 @@ export default function EditAgentPage() {
   const [type, setType] = useState<AgentType>("GENERAL");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [tools, setTools] = useState<string[]>([]);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  // Validation functions
+  const validateName = useCallback((value: string): string | undefined => {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) return "Name is required";
+    if (trimmed.length < NAME_MIN_LENGTH) return `Name must be at least ${NAME_MIN_LENGTH} characters`;
+    if (trimmed.length > NAME_MAX_LENGTH) return `Name must be at most ${NAME_MAX_LENGTH} characters`;
+    return undefined;
+  }, []);
+
+  const validateDescription = useCallback((value: string): string | undefined => {
+    if (value.length > DESCRIPTION_MAX_LENGTH) {
+      return `Description must be at most ${DESCRIPTION_MAX_LENGTH} characters`;
+    }
+    return undefined;
+  }, []);
+
+  const handleBlur = useCallback((field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  }, []);
+
+  const handleNameChange = useCallback((value: string) => {
+    setName(value);
+    setErrors((prev) => ({ ...prev, name: validateName(value) }));
+  }, [validateName]);
+
+  const handleDescriptionChange = useCallback((value: string) => {
+    setDescription(value);
+    setErrors((prev) => ({ ...prev, description: validateDescription(value) }));
+  }, [validateDescription]);
 
   useEffect(() => {
     async function loadAgent() {
@@ -113,15 +155,15 @@ export default function EditAgentPage() {
     }
   };
 
-  const toggleTool = (toolId: string) => {
+  const toggleTool = useCallback((toolId: string) => {
     setTools((prev) =>
       prev.includes(toolId)
         ? prev.filter((t) => t !== toolId)
         : [...prev, toolId]
     );
-  };
+  }, []);
 
-  const canSave = name.trim().length >= 2;
+  const canSave = !validateName(name) && !validateDescription(description);
 
   if (isLoading) {
     return (
@@ -182,26 +224,72 @@ export default function EditAgentPage() {
           <Card>
             <CardHeader>
               <CardTitle>Basic Information</CardTitle>
+              <CardDescription>
+                Update your agent&apos;s name and description
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Agent Name *</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="name">Agent Name *</Label>
+                  <span
+                    className={cn(
+                      "text-xs",
+                      name.length > NAME_MAX_LENGTH
+                        ? "text-destructive"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {name.length}/{NAME_MAX_LENGTH}
+                  </span>
+                </div>
                 <Input
                   id="name"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => handleNameChange(e.target.value)}
+                  onBlur={() => handleBlur("name")}
+                  maxLength={NAME_MAX_LENGTH + 10}
                   placeholder="e.g., Code Review Assistant"
+                  className={cn(
+                    touched.name &&
+                      errors.name &&
+                      "border-destructive focus-visible:ring-destructive"
+                  )}
                 />
+                {touched.name && errors.name && (
+                  <p className="text-xs text-destructive">{errors.name}</p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="description">Description</Label>
+                  <span
+                    className={cn(
+                      "text-xs",
+                      description.length > DESCRIPTION_MAX_LENGTH
+                        ? "text-destructive"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {description.length}/{DESCRIPTION_MAX_LENGTH}
+                  </span>
+                </div>
                 <Textarea
                   id="description"
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => handleDescriptionChange(e.target.value)}
+                  onBlur={() => handleBlur("description")}
                   placeholder="Describe what this agent does..."
                   rows={3}
+                  className={cn(
+                    touched.description &&
+                      errors.description &&
+                      "border-destructive focus-visible:ring-destructive"
+                  )}
                 />
+                {touched.description && errors.description && (
+                  <p className="text-xs text-destructive">{errors.description}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type">Agent Type</Label>
