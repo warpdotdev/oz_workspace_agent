@@ -9,6 +9,7 @@ export function Navigation() {
   const navItems = [
     { href: '/', label: 'Home' },
     { href: '/agents', label: 'Agents' },
+    { href: '/tasks', label: 'Tasks' },
     { href: '/agents/new', label: 'Create Agent' },
   ];
 
