@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, Agent, AgentStatus } from '@/lib/api';
 import { StatusBadge } from '@/components/StatusBadge';
+import { AgentStats } from '@/components/AgentStats';
 
 interface AgentDetailPageProps {
   params: Promise<{ id: string }>;
@@ -164,6 +165,15 @@ export default function AgentDetailPage({ params }: AgentDetailPageProps) {
             Delete
           </button>
         </div>
+      </div>
+
+      {/* Stats */}
+      <div className="mb-8">
+        <AgentStats
+          successRate={agent.stats?.successRate ?? null}
+          totalRuns={agent.stats?.totalRuns ?? 0}
+          avgLatency={agent.stats?.avgLatency ?? null}
+        />
       </div>
 
       {/* Content grid */}

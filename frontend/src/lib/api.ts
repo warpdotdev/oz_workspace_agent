@@ -2,6 +2,12 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+export interface AgentStats {
+  successRate: number | null;
+  totalRuns: number;
+  avgLatency: number | null;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -9,6 +15,7 @@ export interface Agent {
   status: AgentStatus;
   capabilities: string[];
   configuration: AgentConfiguration;
+  stats?: AgentStats;
   createdAt: string;
   updatedAt: string;
 }
