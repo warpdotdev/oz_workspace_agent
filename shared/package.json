@@ -1,0 +1,11 @@
+{
+  "name": "@todo-app/shared",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types for todo-app",
+  "main": "types/todo.ts",
+  "types": "types/todo.ts",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}
