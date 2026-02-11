@@ -1,0 +1,284 @@
+// AI Agent Management Platform - Prisma Schema
+// PostgreSQL database schema for managing AI agents, tasks, and events
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - Authentication and user management
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String?
+  role          UserRole @default(USER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  agents        Agent[]         @relation("UserAgents")
+  tasks         Task[]          @relation("UserTasks")
+  events        Event[]         @relation("UserEvents")
+  executions    AgentExecution[] @relation("UserExecutions")
+
+  @@index([email])
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  VIEWER
+}
+
+// Agent model - AI agents with configuration and metadata
+model Agent {
+  id              String       @id @default(cuid())
+  name            String
+  description     String?
+  type            AgentType    @default(CUSTOM)
+  status          AgentStatus  @default(INACTIVE)
+  
+  // Configuration
+  config          Json?        // JSON configuration for agent behavior
+  framework       String?      // e.g., "LangChain", "CrewAI", "AutoGPT"
+  modelProvider   String?      // e.g., "OpenAI", "Anthropic", "Local"
+  modelName       String?      // e.g., "gpt-4", "claude-3"
+  
+  // Control settings
+  autonomyLevel   AutonomyLevel @default(SUPERVISED)
+  maxRetries      Int          @default(3)
+  timeoutSeconds  Int          @default(300)
+  
+  // Metadata
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  lastActiveAt    DateTime?
+  userId          String
+
+  // Relations
+  user            User         @relation("UserAgents", fields: [userId], references: [id], onDelete: Cascade)
+  tasks           Task[]       @relation("AgentTasks")
+  executions      AgentExecution[] @relation("AgentExecutions")
+  events          Event[]      @relation("AgentEvents")
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("agents")
+}
+
+enum AgentType {
+  CUSTOM
+  ASSISTANT
+  AUTOMATION
+  ANALYSIS
+  ORCHESTRATOR
+}
+
+enum AgentStatus {
+  ACTIVE
+  INACTIVE
+  PAUSED
+  ERROR
+  ARCHIVED
+}
+
+enum AutonomyLevel {
+  AUTONOMOUS    // Fully autonomous execution
+  SUPERVISED    // Requires approval for critical actions
+  MANUAL        // Human in the loop for all actions
+}
+
+// Task model - Task management for agents
+model Task {
+  id              String       @id @default(cuid())
+  title           String
+  description     String?
+  status          TaskStatus   @default(BACKLOG)
+  priority        Priority     @default(MEDIUM)
+  
+  // Task details
+  input           Json?        // Input parameters for the task
+  output          Json?        // Output/result of the task
+  errorMessage    String?
+  
+  // Assignment
+  agentId         String?
+  userId          String
+  assignedAt      DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  
+  // Metadata
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  dueDate         DateTime?
+  estimatedDurationSeconds Int?
+
+  // Relations
+  agent           Agent?       @relation("AgentTasks", fields: [agentId], references: [id], onDelete: SetNull)
+  user            User         @relation("UserTasks", fields: [userId], references: [id], onDelete: Cascade)
+  executions      AgentExecution[] @relation("TaskExecutions")
+  events          Event[]      @relation("TaskEvents")
+
+  @@index([userId])
+  @@index([agentId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([dueDate])
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  BACKLOG
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// AgentExecution model - Track individual agent execution runs
+model AgentExecution {
+  id              String           @id @default(cuid())
+  
+  // Execution details
+  status          ExecutionStatus  @default(PENDING)
+  startedAt       DateTime         @default(now())
+  completedAt     DateTime?
+  durationMs      Int?             // Duration in milliseconds
+  
+  // Results and metrics
+  result          Json?            // Execution result
+  errorMessage    String?
+  errorStack      String?
+  
+  // Metrics
+  tokensUsed      Int?             // Token usage for LLM calls
+  cost            Float?           // Estimated cost in USD
+  confidenceScore Float?           // Agent's confidence in the result (0-1)
+  
+  // Relations
+  agentId         String
+  taskId          String?
+  userId          String
+  
+  agent           Agent    @relation("AgentExecutions", fields: [agentId], references: [id], onDelete: Cascade)
+  task            Task?    @relation("TaskExecutions", fields: [taskId], references: [id], onDelete: SetNull)
+  user            User     @relation("UserExecutions", fields: [userId], references: [id], onDelete: Cascade)
+  events          Event[]  @relation("ExecutionEvents")
+
+  @@index([agentId])
+  @@index([taskId])
+  @@index([userId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("agent_executions")
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  TIMEOUT
+  CANCELLED
+}
+
+// Event model - Audit log and activity tracking
+model Event {
+  id              String      @id @default(cuid())
+  type            EventType
+  category        EventCategory @default(INFO)
+  message         String
+  details         Json?       // Additional event data
+  
+  // Context
+  agentId         String?
+  taskId          String?
+  executionId     String?
+  userId          String
+  
+  // Metadata
+  timestamp       DateTime    @default(now())
+  ipAddress       String?
+  userAgent       String?
+
+  // Relations
+  agent           Agent?           @relation("AgentEvents", fields: [agentId], references: [id], onDelete: Cascade)
+  task            Task?            @relation("TaskEvents", fields: [taskId], references: [id], onDelete: Cascade)
+  execution       AgentExecution?  @relation("ExecutionEvents", fields: [executionId], references: [id], onDelete: Cascade)
+  user            User             @relation("UserEvents", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([timestamp])
+  @@index([agentId])
+  @@index([taskId])
+  @@index([executionId])
+  @@index([userId])
+  @@index([type])
+  @@index([category])
+  @@map("events")
+}
+
+enum EventType {
+  // Agent events
+  AGENT_CREATED
+  AGENT_UPDATED
+  AGENT_DELETED
+  AGENT_STARTED
+  AGENT_STOPPED
+  AGENT_PAUSED
+  AGENT_RESUMED
+  
+  // Task events
+  TASK_CREATED
+  TASK_UPDATED
+  TASK_ASSIGNED
+  TASK_STARTED
+  TASK_COMPLETED
+  TASK_FAILED
+  TASK_CANCELLED
+  
+  // Execution events
+  EXECUTION_STARTED
+  EXECUTION_COMPLETED
+  EXECUTION_FAILED
+  EXECUTION_TIMEOUT
+  EXECUTION_CANCELLED
+  
+  // User events
+  USER_LOGIN
+  USER_LOGOUT
+  USER_CREATED
+  USER_UPDATED
+  USER_DELETED
+  
+  // System events
+  SYSTEM_ERROR
+  SYSTEM_WARNING
+  API_CALL
+  INTERVENTION_REQUIRED
+  INTERVENTION_COMPLETED
+}
+
+enum EventCategory {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+  DEBUG
+}
