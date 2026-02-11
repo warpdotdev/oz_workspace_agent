@@ -98,6 +98,8 @@ model Agent {
   conversations Conversation[]
   tasks         Task[]
   auditLogs     AuditLog[]
+  metrics       AgentMetrics?
+  events        AgentEvent[]
 
   @@index([userId])
   @@index([projectId])
@@ -207,6 +209,49 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model AgentMetrics {
+  id              String      @id @default(cuid())
+  agentId         String
+  tasksCompleted  Int         @default(0)
+  tasksFailed     Int         @default(0)
+  avgResponseTime Float?      // milliseconds
+  uptime          Float?      // percentage
+  lastHealthCheck DateTime?
+  healthStatus    HealthStatus @default(HEALTHY)
+  errorCount      Int         @default(0)
+  lastError       String?
+  lastErrorAt     DateTime?
+  cpuUsage        Float?      // percentage
+  memoryUsage     Float?      // percentage
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId])
+  @@index([healthStatus])
+  @@index([updatedAt])
+  @@map("agent_metrics")
+}
+
+model AgentEvent {
+  id        String     @id @default(cuid())
+  agentId   String
+  eventType EventType
+  message   String
+  severity  Severity   @default(INFO)
+  metadata  Json?
+  createdAt DateTime   @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([eventType])
+  @@index([severity])
+  @@index([createdAt])
+  @@map("agent_events")
+}
+
 enum Role {
   USER
   ADMIN
@@ -256,4 +301,31 @@ enum MessageRole {
   ASSISTANT
   SYSTEM
   TOOL
+}
+
+enum HealthStatus {
+  HEALTHY
+  DEGRADED
+  UNHEALTHY
+  UNKNOWN
+}
+
+enum EventType {
+  STARTED
+  STOPPED
+  PAUSED
+  RESUMED
+  TASK_COMPLETED
+  TASK_FAILED
+  ERROR
+  WARNING
+  HEALTH_CHECK
+  CONFIG_CHANGED
+}
+
+enum Severity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
 }

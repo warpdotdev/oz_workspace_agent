@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, LayoutDashboard, Settings, Plus, Wifi, WifiOff } from "lucide-react";
+import { Bot, LayoutDashboard, Settings, Plus, Wifi, WifiOff, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -14,6 +14,7 @@ interface NavigationProps {
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/agents", label: "Agents", icon: Bot },
+  { href: "/monitoring", label: "Monitoring", icon: Activity },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

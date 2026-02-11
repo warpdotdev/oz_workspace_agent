@@ -3,6 +3,9 @@
 
 export type AgentStatus = "IDLE" | "RUNNING" | "PAUSED" | "ERROR" | "TERMINATED";
 export type AgentType = "CODING" | "RESEARCH" | "ANALYSIS" | "GENERAL" | "CUSTOM";
+export type HealthStatus = "HEALTHY" | "DEGRADED" | "UNHEALTHY" | "UNKNOWN";
+export type EventType = "STARTED" | "STOPPED" | "PAUSED" | "RESUMED" | "TASK_COMPLETED" | "TASK_FAILED" | "ERROR" | "WARNING" | "HEALTH_CHECK" | "CONFIG_CHANGED";
+export type Severity = "INFO" | "WARNING" | "ERROR" | "CRITICAL";
 
 export interface Agent {
   id: string;
@@ -39,6 +42,50 @@ export interface UpdateAgentInput {
   systemPrompt?: string;
   tools?: string[];
   config?: Record<string, unknown>;
+}
+
+export interface AgentMetrics {
+  id: string;
+  agentId: string;
+  tasksCompleted: number;
+  tasksFailed: number;
+  avgResponseTime: number | null;
+  uptime: number | null;
+  lastHealthCheck: string | null;
+  healthStatus: HealthStatus;
+  errorCount: number;
+  lastError: string | null;
+  lastErrorAt: string | null;
+  cpuUsage: number | null;
+  memoryUsage: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentEvent {
+  id: string;
+  agentId: string;
+  eventType: EventType;
+  message: string;
+  severity: Severity;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface AgentWithMetrics extends Agent {
+  metrics: AgentMetrics | null;
+}
+
+export interface MonitoringOverview {
+  totalAgents: number;
+  activeAgents: number;
+  healthyAgents: number;
+  degradedAgents: number;
+  unhealthyAgents: number;
+  totalTasksCompleted: number;
+  totalTasksFailed: number;
+  avgResponseTime: number | null;
+  recentEvents: AgentEvent[];
 }
 
 // Framework options for agent creation
@@ -94,6 +141,43 @@ async function fetchApi<T>(
 }
 
 // Agent API functions
+// Monitoring API functions
+export const monitoringApi = {
+  // Get monitoring overview
+  async getOverview(): Promise<MonitoringOverview> {
+    return fetchApi<MonitoringOverview>("/monitoring/overview");
+  },
+
+  // Get all agents with their metrics
+  async getAgentsWithMetrics(): Promise<AgentWithMetrics[]> {
+    return fetchApi<AgentWithMetrics[]>("/monitoring/agents");
+  },
+
+  // Get metrics for a specific agent
+  async getAgentMetrics(agentId: string): Promise<AgentMetrics> {
+    return fetchApi<AgentMetrics>(`/monitoring/agents/${agentId}/metrics`);
+  },
+
+  // Get events for a specific agent
+  async getAgentEvents(agentId: string, limit?: number): Promise<AgentEvent[]> {
+    const params = limit ? `?limit=${limit}` : "";
+    return fetchApi<AgentEvent[]>(`/monitoring/agents/${agentId}/events${params}`);
+  },
+
+  // Get recent events across all agents
+  async getRecentEvents(limit?: number): Promise<AgentEvent[]> {
+    const params = limit ? `?limit=${limit}` : "";
+    return fetchApi<AgentEvent[]>(`/monitoring/events${params}`);
+  },
+
+  // Trigger health check for an agent
+  async triggerHealthCheck(agentId: string): Promise<AgentMetrics> {
+    return fetchApi<AgentMetrics>(`/monitoring/agents/${agentId}/health-check`, {
+      method: "POST",
+    });
+  },
+};
+
 export const agentApi = {
   // List all agents
   async list(): Promise<Agent[]> {
