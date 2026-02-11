@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 
 /**
  * API Error Response - Errors as first-class features
@@ -189,7 +190,7 @@ export async function POST(req: NextRequest) {
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
         // Trust fields
         confidenceScore: data.confidenceScore ?? 0.5,
-        reasoningLog: data.reasoningLog,
+        reasoningLog: data.reasoningLog as Prisma.InputJsonValue | undefined,
         requiresReview: shouldRequireReview,
         // Initialize error tracking
         retryCount: 0,

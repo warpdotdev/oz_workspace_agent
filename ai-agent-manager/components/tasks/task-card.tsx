@@ -51,12 +51,16 @@ export interface Task {
   reviewedBy?: { id: string; name?: string | null; email: string } | null;
 }
 
+type CardDensity = 'compact' | 'comfortable' | 'spacious'
+
 interface TaskCardProps {
   task: Task;
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: string) => void;
+  onClick?: () => void;
   isDragging?: boolean;
   showDetails?: boolean;
+  density?: CardDensity;
 }
 
 /**
@@ -71,13 +75,17 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps & { style?: Rea
   task, 
   onEdit, 
   onDelete,
+  onClick,
   isDragging = false,
   showDetails = false,
+  density = 'comfortable',
   style,
   attributes,
   listeners,
   ...props
 }, ref) {
+  const isCompact = density === 'compact'
+  const isSpaciouos = density === 'spacious'
 
   // Status colors per design-lead guidance
   const statusColors = {
@@ -102,9 +110,11 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps & { style?: Rea
     <div
       ref={ref}
       style={style}
+      onClick={onClick}
       {...props}
       className={cn(
-        "bg-card border rounded-lg p-3 shadow-sm transition-all",
+        "bg-card border rounded-lg shadow-sm transition-all cursor-pointer",
+        isCompact ? "p-2" : isSpaciouos ? "p-5" : "p-3",
         isDragging && "opacity-50 shadow-lg",
         needsAttention && "ring-2 ring-amber-400 dark:ring-amber-500",
         hasError && "ring-2 ring-red-400 dark:ring-red-500"

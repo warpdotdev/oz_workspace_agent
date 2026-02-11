@@ -1,12 +1,14 @@
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { Task, TaskStatus } from '@/types/task'
+import { Task } from '@/types/task'
 import { TaskCard } from './task-card'
 import { Badge } from '@/components/ui/badge'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { CardDensity } from './task-filters'
 import { Inbox, PlayCircle, Eye, CheckCircle } from 'lucide-react'
+
+type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE' | 'CANCELLED'
 
 interface KanbanColumnProps {
   status: TaskStatus
