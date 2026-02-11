@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { Task, TaskStatus, CreateTaskInput } from '@/types/task'
+import { Task, TaskStatus, CreateTaskInput, TaskPriority } from '@/types/task'
 import { KanbanColumn } from '@/components/tasks/kanban-column'
 import { TaskModal } from '@/components/tasks/task-modal'
 import { TaskCard } from '@/components/tasks/task-card'
+import { TaskFilters, CardDensity } from '@/components/tasks/task-filters'
 import { Button } from '@/components/ui/button'
 import { Plus, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -17,6 +18,12 @@ export default function TasksPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | undefined>()
   const [activeTask, setActiveTask] = useState<Task | null>(null)
+
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'ALL'>('ALL')
+  const [agentFilter, setAgentFilter] = useState<string | 'ALL'>('ALL')
+  const [density, setDensity] = useState<CardDensity>('comfortable')
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -159,13 +166,43 @@ export default function TasksPage() {
     setEditingTask(undefined)
   }
 
+  // Filter tasks based on search and filters
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        const matchesTitle = task.title.toLowerCase().includes(query)
+        const matchesDescription = task.description?.toLowerCase().includes(query)
+        if (!matchesTitle && !matchesDescription) return false
+      }
+
+      // Priority filter
+      if (priorityFilter !== 'ALL' && task.priority !== priorityFilter) {
+        return false
+      }
+
+      // Agent filter
+      if (agentFilter !== 'ALL') {
+        if (agentFilter === 'UNASSIGNED') {
+          if (task.agentId) return false
+        } else {
+          if (task.agentId !== agentFilter) return false
+        }
+      }
+
+      return true
+    })
+  }, [tasks, searchQuery, priorityFilter, agentFilter])
+
   const getTasksByStatus = (status: TaskStatus) => {
-    return tasks.filter((task) => task.status === status)
+    return filteredTasks.filter((task) => task.status === status)
   }
 
   const columns: Array<{ status: TaskStatus; title: string }> = [
     { status: 'TODO', title: 'To Do' },
     { status: 'IN_PROGRESS', title: 'In Progress' },
+    { status: 'REVIEW', title: 'Review' },
     { status: 'DONE', title: 'Done' },
   ]
 
@@ -203,6 +240,18 @@ export default function TasksPage() {
           </div>
         </div>
 
+        <TaskFilters
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          priorityFilter={priorityFilter}
+          onPriorityChange={setPriorityFilter}
+          agentFilter={agentFilter}
+          onAgentChange={setAgentFilter}
+          agents={agents}
+          density={density}
+          onDensityChange={setDensity}
+        />
+
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
@@ -216,12 +265,13 @@ export default function TasksPage() {
                 title={column.title}
                 tasks={getTasksByStatus(column.status)}
                 onTaskClick={handleTaskClick}
+                density={density}
               />
             ))}
           </div>
 
           <DragOverlay>
-            {activeTask ? <TaskCard task={activeTask} /> : null}
+            {activeTask ? <TaskCard task={activeTask} density={density} /> : null}
           </DragOverlay>
         </DndContext>
 
