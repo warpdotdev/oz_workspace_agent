@@ -170,8 +170,8 @@ export async function POST(request: NextRequest) {
         dueDate: dueDate ? new Date(dueDate) : null,
         // Trust fields - first-class features
         confidenceScore: confidenceScore ?? null,
-        reasoningLog: reasoningLog as Prisma.InputJsonValue | undefined,
-        executionSteps: executionSteps as Prisma.InputJsonValue | undefined,
+        reasoningLog: reasoningLog ?? null,
+        executionSteps: executionSteps ?? null,
         requiresReview: autoRequiresReview,
         // Track first attempt for retry velocity metric
         firstAttemptAt: status === 'IN_PROGRESS' ? new Date() : null,
