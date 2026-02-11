@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAgentStore } from "@/store/agentStore";
-import { createAgent, dispatchTask } from "@/lib/tauri";
-import type { AgentFramework } from "@/types";
+import { dispatchTask } from "@/lib/tauri";
+import { CreateAgentForm } from "./CreateAgentForm";
 
 interface CommandItem {
   id: string;
@@ -13,10 +13,11 @@ interface CommandItem {
 }
 
 export function CommandBar() {
-  const { isCommandBarOpen, setCommandBarOpen, agents, addAgent, updateAgent, selectedAgentId } =
+  const { isCommandBarOpen, setCommandBarOpen, agents, updateAgent, selectedAgentId } =
     useAgentStore();
   const [search, setSearch] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const commands: CommandItem[] = [
@@ -26,25 +27,9 @@ export function CommandBar() {
       description: "Create a new AI agent",
       shortcut: "⌘N",
       category: "agent",
-      action: async () => {
-        try {
-          const frameworks: AgentFramework[] = ["openai", "langchain", "crewai", "custom"];
-          const randomFramework = frameworks[Math.floor(Math.random() * frameworks.length)];
-          
-          const newAgent = await createAgent({
-            name: `Agent ${agents.length + 1}`,
-            description: `New agent created at ${new Date().toLocaleTimeString()}`,
-            framework: randomFramework,
-            model: "gpt-4",
-            maxTokens: 4096,
-            temperature: 0.7,
-          });
-          
-          addAgent(newAgent);
-          setCommandBarOpen(false);
-        } catch (error) {
-          console.error('[CommandBar] Failed to create agent:', error);
-        }
+      action: () => {
+        setCommandBarOpen(false);
+        setShowCreateForm(true);
       },
     },
     {
@@ -175,9 +160,20 @@ export function CommandBar() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isCommandBarOpen, filteredCommands, selectedIndex, setCommandBarOpen]);
 
-  if (!isCommandBarOpen) return null;
-
   return (
+    <>
+      {/* Create Agent Form */}
+      {showCreateForm && (
+        <CreateAgentForm
+          onClose={() => setShowCreateForm(false)}
+          onSuccess={() => {
+            // Form already handles adding agent to store
+          }}
+        />
+      )}
+
+      {/* Command Bar */}
+      {!isCommandBarOpen ? null : (
     <div className="command-bar" onClick={() => setCommandBarOpen(false)}>
       <div
         className="command-bar-content animate-slide-in"
@@ -253,6 +249,8 @@ export function CommandBar() {
         </div>
       </div>
     </div>
+      )}
+    </>
   );
 }
 
