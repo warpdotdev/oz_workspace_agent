@@ -7,6 +7,7 @@ import { compare } from 'bcryptjs'
 import { db } from '@/lib/db'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  // @ts-expect-error - PrismaAdapter type mismatch with next-auth versions
   adapter: PrismaAdapter(db),
   session: {
     strategy: 'jwt',
