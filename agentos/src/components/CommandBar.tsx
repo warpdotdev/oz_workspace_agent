@@ -46,10 +46,12 @@ export function CommandBar() {
             addActivity({
               id: `${Date.now()}`,
               agentId: selectedAgentId,
-              agentName: agent.name,
-              type: "user_input",
+              agentName: agent.config.name,
+              eventType: "action",
+              type: "action",
               content: "New task dispatched by user",
-              timestamp: new Date(),
+              message: "New task dispatched by user",
+              timestamp: new Date().toISOString(),
             });
           }
         }
