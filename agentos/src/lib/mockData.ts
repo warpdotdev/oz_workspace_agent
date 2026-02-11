@@ -1,106 +1,148 @@
-import type { Agent, Activity, AgentStatus, AgentConfig } from '../types';
+import type { Agent, ActivityEvent, AgentStatus } from '../types';
 
 // Generate mock agents
-const defaultConfig: AgentConfig = {
-  model: 'claude-3-sonnet',
-  maxTokens: 100000,
-  temperature: 0.7,
-  systemPrompt: 'You are a helpful AI assistant',
-  tools: ['code_analysis', 'file_operations'],
-};
-
 export const mockAgents: Agent[] = [
   {
     id: 'agent-1',
-    name: 'Code Review Bot',
+    config: {
+      id: 'agent-1',
+      name: 'Code Review Bot',
+      description: 'AI agent for code review tasks',
+      framework: 'crewai',
+      model: 'claude-3-sonnet',
+      maxTokens: 4096,
+      temperature: 0.7,
+      systemPrompt: 'You are a code review assistant.',
+      tools: ['code_analysis', 'git'],
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
     status: 'running',
     currentTask: 'Reviewing PR #142',
-    framework: 'custom',
-    startedAt: new Date(Date.now() - 3600000),
+    runtime: 3600000, // 1 hour
     tokensUsed: 57000,
-    estimatedCost: 0.45,
-    lastHeartbeat: new Date(),
-    config: { ...defaultConfig, model: 'claude-3-sonnet' },
+    lastActivity: new Date().toISOString(),
+    errorMessage: null,
   },
   {
     id: 'agent-2',
-    name: 'Documentation Writer',
+    config: {
+      id: 'agent-2',
+      name: 'Documentation Writer',
+      description: 'AI agent for documentation tasks',
+      framework: 'langchain',
+      model: 'gpt-4-turbo',
+      maxTokens: 8192,
+      temperature: 0.5,
+      systemPrompt: 'You are a documentation assistant.',
+      tools: ['web_search', 'file_access'],
+      createdAt: new Date(Date.now() - 86400000).toISOString(),
+      updatedAt: new Date(Date.now() - 1800000).toISOString(),
+    },
     status: 'idle',
     currentTask: null,
-    framework: 'langchain',
-    startedAt: new Date(Date.now() - 86400000),
+    runtime: 7200000, // 2 hours
     tokensUsed: 205000,
-    estimatedCost: 1.85,
-    lastHeartbeat: new Date(Date.now() - 1800000),
-    config: { ...defaultConfig, model: 'gpt-4-turbo' },
+    lastActivity: new Date(Date.now() - 1800000).toISOString(),
+    errorMessage: null,
   },
   {
     id: 'agent-3',
-    name: 'Test Generator',
+    config: {
+      id: 'agent-3',
+      name: 'Test Generator',
+      description: 'AI agent for test generation',
+      framework: 'openai',
+      model: 'claude-3-opus',
+      maxTokens: 4096,
+      temperature: 0.3,
+      systemPrompt: 'You are a test generation assistant.',
+      tools: ['code_execution', 'file_access'],
+      createdAt: new Date(Date.now() - 7200000).toISOString(),
+      updatedAt: new Date(Date.now() - 900000).toISOString(),
+    },
     status: 'paused',
     currentTask: 'Generating unit tests for auth module',
-    framework: 'crewai',
-    startedAt: new Date(Date.now() - 7200000),
+    runtime: 1800000, // 30 minutes
     tokensUsed: 43000,
-    estimatedCost: 0.32,
-    lastHeartbeat: new Date(Date.now() - 900000),
-    config: { ...defaultConfig, model: 'claude-3-opus' },
+    lastActivity: new Date(Date.now() - 900000).toISOString(),
+    errorMessage: null,
   },
   {
     id: 'agent-4',
-    name: 'Bug Fixer',
+    config: {
+      id: 'agent-4',
+      name: 'Bug Fixer',
+      description: 'AI agent for bug fixing',
+      framework: 'custom',
+      model: 'claude-3-haiku',
+      maxTokens: 2048,
+      temperature: 0.2,
+      systemPrompt: 'You are a bug fixing assistant.',
+      tools: ['code_analysis', 'debugging'],
+      createdAt: new Date(Date.now() - 600000).toISOString(),
+      updatedAt: new Date(Date.now() - 300000).toISOString(),
+    },
     status: 'error',
     currentTask: 'Failed: Could not parse file',
-    framework: 'openai',
-    startedAt: new Date(Date.now() - 600000),
+    runtime: 600000, // 10 minutes
     tokensUsed: 10000,
-    estimatedCost: 0.08,
-    lastHeartbeat: new Date(Date.now() - 300000),
-    config: { ...defaultConfig, model: 'claude-3-haiku' },
+    lastActivity: new Date(Date.now() - 300000).toISOString(),
+    errorMessage: 'Failed to parse file: Unexpected token at line 42',
   },
 ];
 
 // Generate mock activities
-export const mockActivities: Activity[] = [
+export const mockActivities: ActivityEvent[] = [
   {
     id: 'activity-1',
     agentId: 'agent-1',
     agentName: 'Code Review Bot',
+    eventType: 'thought',
     type: 'thought',
     content: 'Analyzing code changes in src/components/Button.tsx',
-    timestamp: new Date(Date.now() - 30000),
+    message: 'Analyzing code changes in src/components/Button.tsx',
+    timestamp: new Date(Date.now() - 30000).toISOString(),
   },
   {
     id: 'activity-2',
     agentId: 'agent-4',
     agentName: 'Bug Fixer',
+    eventType: 'error',
     type: 'error',
     content: 'Failed to parse file: Unexpected token at line 42',
-    timestamp: new Date(Date.now() - 60000),
+    message: 'Failed to parse file: Unexpected token at line 42',
+    timestamp: new Date(Date.now() - 60000).toISOString(),
   },
   {
     id: 'activity-3',
     agentId: 'agent-2',
     agentName: 'Documentation Writer',
+    eventType: 'task_complete',
     type: 'task_complete',
     content: 'Completed documentation for API endpoints',
-    timestamp: new Date(Date.now() - 120000),
+    message: 'Completed documentation for API endpoints',
+    timestamp: new Date(Date.now() - 120000).toISOString(),
   },
   {
     id: 'activity-4',
     agentId: 'agent-3',
     agentName: 'Test Generator',
+    eventType: 'status_change',
     type: 'status_change',
     content: 'Agent paused by user',
-    timestamp: new Date(Date.now() - 180000),
+    message: 'Agent paused by user',
+    timestamp: new Date(Date.now() - 180000).toISOString(),
   },
   {
     id: 'activity-5',
     agentId: 'agent-1',
     agentName: 'Code Review Bot',
-    type: 'user_input',
+    eventType: 'action',
+    type: 'action',
     content: 'Started reviewing PR #142: Add user authentication',
-    timestamp: new Date(Date.now() - 240000),
+    message: 'Started reviewing PR #142: Add user authentication',
+    timestamp: new Date(Date.now() - 240000).toISOString(),
   },
 ];
 
@@ -115,7 +157,7 @@ const thoughts = [
   'Scanning for security vulnerabilities...',
 ];
 
-export function generateRandomActivity(agents: Agent[]): Activity | null {
+export function generateRandomActivity(agents: Agent[]): ActivityEvent | null {
   const runningAgents = agents.filter((a) => a.status === 'running');
   if (runningAgents.length === 0) return null;
 
@@ -125,10 +167,12 @@ export function generateRandomActivity(agents: Agent[]): Activity | null {
   return {
     id: `activity-${Date.now()}`,
     agentId: agent.id,
-    agentName: agent.name,
+    agentName: agent.config.name,
+    eventType: 'thought',
     type: 'thought',
     content: thought,
-    timestamp: new Date(),
+    message: thought,
+    timestamp: new Date().toISOString(),
   };
 }
 
@@ -140,7 +184,6 @@ export function generateRandomStatusChange(agent: Agent): AgentStatus {
     paused: ['running', 'paused'],
     idle: ['running', 'idle'],
     error: ['idle', 'error'],
-    pending: ['running', 'pending'],
   };
 
   const possibleStates = transitions[currentStatus];

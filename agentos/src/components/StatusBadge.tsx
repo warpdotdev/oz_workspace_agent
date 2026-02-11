@@ -34,12 +34,6 @@ const statusConfig: Record<
     label: "Paused",
     dotClass: "bg-status-paused",
   },
-  pending: {
-    color: "text-status-pending",
-    bgColor: "bg-status-pending/10",
-    label: "Pending",
-    dotClass: "bg-status-pending animate-pulse-slow",
-  },
 };
 
 const sizeClasses = {

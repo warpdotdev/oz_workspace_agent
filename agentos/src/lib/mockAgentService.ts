@@ -59,26 +59,33 @@ const mockObservations = [
 
 // Create a mock agent
 export function createMockAgent(index: number): Agent {
-  const statuses: AgentStatus[] = ["running", "idle", "paused", "pending"];
+  const statuses: AgentStatus[] = ["running", "idle", "paused", "error"];
   const frameworks = ["crewai", "langchain", "openai", "custom"] as const;
+  const agentId = generateId();
+  const agentName = mockAgentNames[index % mockAgentNames.length];
+  const now = new Date().toISOString();
 
   return {
-    id: generateId(),
-    name: mockAgentNames[index % mockAgentNames.length],
-    status: statuses[Math.floor(Math.random() * statuses.length)],
-    currentTask: Math.random() > 0.3 ? mockTasks[Math.floor(Math.random() * mockTasks.length)] : null,
-    framework: frameworks[Math.floor(Math.random() * frameworks.length)],
-    startedAt: Math.random() > 0.5 ? new Date(Date.now() - Math.random() * 3600000) : null,
-    tokensUsed: Math.floor(Math.random() * 50000),
-    estimatedCost: Math.random() * 5,
-    lastHeartbeat: new Date(),
+    id: agentId,
     config: {
+      id: agentId,
+      name: agentName,
+      description: `AI agent for ${agentName.toLowerCase()} tasks`,
+      framework: frameworks[Math.floor(Math.random() * frameworks.length)],
       model: Math.random() > 0.5 ? "gpt-4-turbo" : "claude-3-opus",
       maxTokens: 4096,
       temperature: 0.7,
       systemPrompt: "You are a helpful AI assistant.",
       tools: ["web_search", "code_execution", "file_access"],
+      createdAt: now,
+      updatedAt: now,
     },
+    status: statuses[Math.floor(Math.random() * statuses.length)],
+    currentTask: Math.random() > 0.3 ? mockTasks[Math.floor(Math.random() * mockTasks.length)] : null,
+    runtime: Math.floor(Math.random() * 3600000),
+    tokensUsed: Math.floor(Math.random() * 50000),
+    lastActivity: now,
+    errorMessage: null,
   };
 }
 
@@ -113,10 +120,12 @@ export function generateMockActivity(agent: Agent): Activity {
   return {
     id: generateId(),
     agentId: agent.id,
-    agentName: agent.name,
+    agentName: agent.config.name,
     type,
     content,
-    timestamp: new Date(),
+    timestamp: new Date().toISOString(),
+    eventType: type,
+    message: content,
   };
 }
 

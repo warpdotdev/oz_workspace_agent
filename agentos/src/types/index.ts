@@ -1,57 +1,78 @@
 // Agent status types
-export type AgentStatus = "running" | "error" | "idle" | "paused" | "pending";
+export type AgentStatus = "running" | "error" | "idle" | "paused";
 
-// Agent interface
-export interface Agent {
+// Agent framework types
+export type AgentFramework = "crewai" | "langchain" | "openai" | "custom";
+
+// Agent configuration
+export interface AgentConfig {
   id: string;
   name: string;
-  status: AgentStatus;
-  currentTask: string | null;
-  framework: "crewai" | "langchain" | "openai" | "custom";
-  startedAt: Date | null;
-  tokensUsed: number;
-  estimatedCost: number;
-  lastHeartbeat: Date;
-  config: AgentConfig;
-}
-
-export interface AgentConfig {
+  description: string;
+  framework: AgentFramework;
   model: string;
   maxTokens: number;
   temperature: number;
-  systemPrompt: string;
+  systemPrompt: string | null;
   tools: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Full agent state
+export interface Agent {
+  id: string;
+  config: AgentConfig;
+  status: AgentStatus;
+  currentTask: string | null;
+  runtime: number;
+  tokensUsed: number;
+  lastActivity: string;
+  errorMessage: string | null;
 }
 
 // Activity/Event types
-export type ActivityType =
+export type EventType =
   | "thought"
   | "action"
   | "observation"
   | "status_change"
   | "error"
-  | "task_complete"
-  | "user_input";
+  | "task_complete";
 
-export interface Activity {
+export type ActivityType = EventType;
+
+export interface AgentEvent {
   id: string;
   agentId: string;
   agentName: string;
+  eventType: EventType;
+  message: string;
+  timestamp: string;
+}
+
+export interface Activity extends AgentEvent {
   type: ActivityType;
   content: string;
-  timestamp: Date;
-  metadata?: Record<string, unknown>;
+}
+
+export interface ActivityEvent extends AgentEvent {
+  type: ActivityType;
+  content: string;
 }
 
 // Task types
+export type TaskStatus = "pending" | "running" | "completed" | "failed";
+
 export interface Task {
   id: string;
   agentId: string;
   instruction: string;
-  status: "pending" | "running" | "completed" | "failed";
+  status: TaskStatus;
   result: string | null;
-  createdAt: Date;
-  completedAt: Date | null;
+  error: string | null;
+  createdAt: string;
+  completedAt: string | null;
 }
 
 // Command bar types
