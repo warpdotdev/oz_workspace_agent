@@ -12,7 +12,11 @@ interface CommandItem {
   action: () => void;
 }
 
-export function CommandBar() {
+interface CommandBarProps {
+  onOpenTaskDispatch?: () => void;
+}
+
+export function CommandBar({ onOpenTaskDispatch }: CommandBarProps) {
   const { isCommandBarOpen, setCommandBarOpen, agents, updateAgent, selectedAgentId } =
     useAgentStore();
   const [search, setSearch] = useState("");
@@ -35,20 +39,13 @@ export function CommandBar() {
     {
       id: "dispatch-task",
       label: "Dispatch Task",
-      description: "Send a task to the selected agent",
+      description: "Open task dispatch panel to send a task to an agent",
       shortcut: "⌘D",
       category: "task",
-      action: async () => {
-        if (selectedAgentId) {
-          try {
-            await dispatchTask({
-              agentId: selectedAgentId,
-              instruction: "Process incoming request and generate response",
-            });
-            setCommandBarOpen(false);
-          } catch (error) {
-            console.error('[CommandBar] Failed to dispatch task:', error);
-          }
+      action: () => {
+        setCommandBarOpen(false);
+        if (onOpenTaskDispatch) {
+          onOpenTaskDispatch();
         }
       },
     },
