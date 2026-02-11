@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@theme {
+  --color-status-running: #10B981;
+  --color-status-error: #EF4444;
+  --color-status-idle: #6B7280;
+  --color-status-paused: #3B82F6;
+  
+  --font-family-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+  @apply bg-gray-900 text-gray-100 font-sans antialiased;
+}
