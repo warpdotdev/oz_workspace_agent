@@ -1,0 +1,232 @@
+// Prisma schema for AI Agent Management Platform
+// Supports PostgreSQL as the primary database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication and ownership
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String?
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  agents       Agent[]
+  tasks        Task[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+// Agent model - core entity for AI agent management
+model Agent {
+  id           String      @id @default(cuid())
+  name         String
+  description  String?
+  type         AgentType   @default(CUSTOM)
+  status       AgentStatus @default(IDLE)
+  config       Json        @default("{}")
+  metadata     Json        @default("{}")
+  
+  // Framework information (for framework-agnostic support)
+  framework    String?     // e.g., "langchain", "crewai", "autogpt", "custom"
+  version      String?
+  
+  // Performance metrics
+  successRate  Float?      @map("success_rate")
+  avgLatency   Float?      @map("avg_latency")
+  totalRuns    Int         @default(0) @map("total_runs")
+  
+  // Ownership and timestamps
+  ownerId      String      @map("owner_id")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  lastActiveAt DateTime?   @map("last_active_at")
+
+  // Relations
+  owner        User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tasks        Task[]
+  events       Event[]
+  capabilities AgentCapability[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([type])
+  @@map("agents")
+}
+
+enum AgentType {
+  CUSTOM
+  ASSISTANT
+  WORKER
+  ORCHESTRATOR
+  SPECIALIST
+}
+
+enum AgentStatus {
+  IDLE
+  RUNNING
+  PAUSED
+  ERROR
+  TERMINATED
+}
+
+// Agent capabilities - what an agent can do
+model AgentCapability {
+  id          String   @id @default(cuid())
+  agentId     String   @map("agent_id")
+  name        String
+  description String?
+  config      Json     @default("{}")
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, name])
+  @@map("agent_capabilities")
+}
+
+// Task model - work items assigned to agents
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus @default(PENDING)
+  priority    TaskPriority @default(MEDIUM)
+  
+  // Task configuration
+  input       Json       @default("{}")
+  output      Json?
+  config      Json       @default("{}")
+  
+  // Execution details
+  startedAt   DateTime?  @map("started_at")
+  completedAt DateTime?  @map("completed_at")
+  errorMessage String?   @map("error_message")
+  retryCount  Int        @default(0) @map("retry_count")
+  maxRetries  Int        @default(3) @map("max_retries")
+  
+  // Dependencies
+  parentTaskId String?   @map("parent_task_id")
+  
+  // Ownership and timestamps
+  agentId     String?    @map("agent_id")
+  createdById String     @map("created_by_id")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  agent       Agent?     @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  createdBy   User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  parentTask  Task?      @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  subtasks    Task[]     @relation("TaskHierarchy")
+  events      Event[]
+
+  @@index([agentId])
+  @@index([status])
+  @@index([createdById])
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  PAUSED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// Event model - activity log for agents and tasks
+model Event {
+  id        String    @id @default(cuid())
+  type      EventType
+  message   String
+  data      Json      @default("{}")
+  level     EventLevel @default(INFO)
+  
+  // Relations
+  agentId   String?   @map("agent_id")
+  taskId    String?   @map("task_id")
+  
+  timestamp DateTime  @default(now())
+
+  agent     Agent?    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  task      Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([taskId])
+  @@index([type])
+  @@index([timestamp])
+  @@map("events")
+}
+
+enum EventType {
+  AGENT_STARTED
+  AGENT_STOPPED
+  AGENT_ERROR
+  AGENT_CONFIG_UPDATED
+  TASK_CREATED
+  TASK_STARTED
+  TASK_COMPLETED
+  TASK_FAILED
+  TASK_CANCELLED
+  TASK_RETRYING
+  SYSTEM_INFO
+  SYSTEM_WARNING
+  SYSTEM_ERROR
+}
+
+enum EventLevel {
+  DEBUG
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+// Audit log for compliance and governance
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  resource   String
+  resourceId String   @map("resource_id")
+  changes    Json     @default("{}")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  
+  userId     String   @map("user_id")
+  timestamp  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([resource])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
