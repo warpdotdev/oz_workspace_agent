@@ -52,6 +52,61 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
+// Task types
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  projectId?: string;
+  assigneeId?: string;
+  agentId?: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  dueDate?: string;
+  confidenceScore?: number; // 0-100 for trust calibration
+  reasoningLog?: Record<string, unknown>; // JSON data for explainability
+}
+
+export enum TaskStatus {
+  TODO = 'TODO',
+  IN_PROGRESS = 'IN_PROGRESS',
+  REVIEW = 'REVIEW',
+  DONE = 'DONE',
+  CANCELLED = 'CANCELLED'
+}
+
+export enum TaskPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  URGENT = 'URGENT'
+}
+
+export interface CreateTaskInput {
+  title: string;
+  description?: string;
+  priority?: TaskPriority;
+  projectId?: string;
+  assigneeId?: string;
+  agentId?: string;
+  dueDate?: string;
+}
+
+export interface UpdateTaskInput {
+  title?: string;
+  description?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  assigneeId?: string;
+  agentId?: string;
+  dueDate?: string;
+  confidenceScore?: number;
+  reasoningLog?: Record<string, unknown>;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -129,6 +184,47 @@ class ApiClient {
   async pauseAgent(id: string): Promise<ApiResponse<Agent>> {
     return this.request<Agent>(`/api/agents/${id}/pause`, {
       method: 'POST',
+    });
+  }
+
+  // Task endpoints
+  async getTasks(params?: {
+    status?: TaskStatus;
+    priority?: TaskPriority;
+    projectId?: string;
+    assigneeId?: string;
+  }): Promise<ApiResponse<Task[]>> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value) queryParams.append(key, value);
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<Task[]>(`/api/tasks${query ? `?${query}` : ''}`);
+  }
+
+  async getTask(id: string): Promise<ApiResponse<Task>> {
+    return this.request<Task>(`/api/tasks/${id}`);
+  }
+
+  async createTask(input: CreateTaskInput): Promise<ApiResponse<Task>> {
+    return this.request<Task>('/api/tasks', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  }
+
+  async updateTask(id: string, input: UpdateTaskInput): Promise<ApiResponse<Task>> {
+    return this.request<Task>(`/api/tasks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deleteTask(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/api/tasks/${id}`, {
+      method: 'DELETE',
     });
   }
 }
