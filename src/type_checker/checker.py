@@ -578,16 +578,16 @@ class TypeChecker:
     def _check_let_stmt(self, let: LetStmt, env: TypeEnvironment) -> None:
         """Type check a let statement."""
         # Infer initializer type
-        init_type = self._infer_expr(let.initializer, env)
+        init_type = self._infer_expr(let.value, env)
         
         # If type annotation present, constrain to match
-        if let.type_annotation:
-            declared_type = self._ast_type_to_inferred(let.type_annotation)
+        if let.type:
+            declared_type = self._ast_type_to_inferred(let.type)
             self.constraints.append(Constraint(
                 kind=ConstraintKind.EQUALITY,
                 left=init_type,
                 right=declared_type,
-                span=let.initializer.span,
+                span=let.value.span,
             ))
             final_type = declared_type
         else:
