@@ -103,7 +103,7 @@ class OwnershipChecker:
         elif isinstance(expr, LambdaExpr):
             self._check_lambda_expr(expr)
         elif isinstance(expr, FieldAccess):
-            self._check_expr(expr.base)
+            self._check_expr(expr.object)
         elif isinstance(expr, TupleExpr):
             for elem in expr.elements:
                 self._check_expr(elem)
@@ -111,8 +111,8 @@ class OwnershipChecker:
             for elem in expr.elements:
                 self._check_expr(elem)
         elif isinstance(expr, StructExpr):
-            for field_expr in expr.fields:
-                self._check_expr(field_expr.value)
+            for field_name, field_value in expr.fields:
+                self._check_expr(field_value)
         elif isinstance(expr, CastExpr):
             self._check_expr(expr.expr)
         elif isinstance(expr, TryExpr):
@@ -181,7 +181,7 @@ class OwnershipChecker:
         self._check_expr(call.function)
         
         # Check each argument
-        for arg in call.arguments:
+        for arg in call.args:
             # For simplicity, assume all arguments are moved unless they're borrows
             if isinstance(arg, UnaryOp) and arg.op in [UnaryOpKind.REF, UnaryOpKind.REF_MUT]:
                 # This is a borrow - already handled in _check_expr
@@ -193,10 +193,10 @@ class OwnershipChecker:
     def _check_method_call(self, call: MethodCall) -> None:
         """Check method call."""
         # Check receiver
-        self._check_expr(call.receiver)
+        self._check_expr(call.object)
         
         # Check arguments
-        for arg in call.arguments:
+        for arg in call.args:
             if isinstance(arg, UnaryOp) and arg.op in [UnaryOpKind.REF, UnaryOpKind.REF_MUT]:
                 self._check_expr(arg)
             else:

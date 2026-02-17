@@ -1,0 +1,54 @@
+// Simplified Veritas To-Do List Application
+// Demonstrates core features: branded types, effect system, Result types, pattern matching
+
+// Branded Type - Prevents ID confusion
+type TaskId = u64 as TaskId;
+
+// Task struct
+struct Task {
+    id: TaskId,
+    title: String,
+    completed: bool,
+}
+
+// Error enum - Explicit error handling
+enum TodoError {
+    TaskNotFound,
+    InvalidInput,
+}
+
+// Create a task - pure function (no effects)
+fn create_task(id: u64, title: String) -> Task {
+    Task {
+        id: TaskId::from(id),
+        title,
+        completed: false,
+    }
+}
+
+// Display task - has IO effect
+fn display_task(task: &Task) !IO {
+    if task.completed {
+        println("[✓] Task {}: {}", task.id, task.title);
+    } else {
+        println("[ ] Task {}: {}", task.id, task.title);
+    }
+}
+
+
+// Main entry point - explicit IO effect
+fn main() !IO {
+    println("Veritas To-Do List Demo");
+    println("");
+    
+    // Create tasks with branded TaskId
+    let task1 = create_task(1, "Learn Veritas");
+    let task2 = create_task(2, "Build demo app");
+    let task3 = create_task(3, "Test compiler");
+    
+    // Display tasks
+    println("Tasks:");
+    display_task(&task1);
+    display_task(&task2);
+    display_task(&task3);
+}

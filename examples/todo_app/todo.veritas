@@ -1,0 +1,336 @@
+// Veritas To-Do List Application
+// Demonstrates: Branded types, effect system, explicit error handling,
+// pattern matching, ownership, and JSON persistence
+
+// ============================================
+// Branded Types - Prevent ID confusion
+// ============================================
+type TaskId = u64 as TaskId;
+
+// ============================================
+// Data Structures
+// ============================================
+struct Task {
+    id: TaskId,
+    title: String,
+    description: String,
+    completed: bool,
+}
+
+struct TodoList {
+    tasks: List<Task>,
+    next_id: u64,
+}
+
+// ============================================
+// Error Types - Explicit error handling
+// ============================================
+enum TodoError {
+    TaskNotFound(TaskId),
+    FileError(String),
+    ParseError(String),
+    InvalidInput(String),
+}
+
+enum Command {
+    Add { title: String, description: String },
+    List { show_completed: bool },
+    Complete { id: TaskId },
+    Delete { id: TaskId },
+    Help,
+}
+
+// ============================================
+// TodoList Implementation
+// ============================================
+impl TodoList {
+    // Constructor - pure function
+    fn new() -> TodoList {
+        TodoList {
+            tasks: List::new(),
+            next_id: 1,
+        }
+    }
+    
+    // Add task - mutates the list
+    fn add_task(&mut self, title: String, description: String) -> TaskId {
+        let task_id = TaskId::from(self.next_id);
+        let task = Task {
+            id: task_id,
+            title,
+            description,
+            completed: false,
+        };
+        self.tasks.push(task);
+        self.next_id += 1;
+        task_id
+    }
+    
+    // Find task by ID - returns Option
+    fn find_task(&self, id: TaskId) -> Option<&Task> {
+        self.tasks.iter().find(|t| t.id == id)
+    }
+    
+    // Find mutable task by ID
+    fn find_task_mut(&mut self, id: TaskId) -> Option<&mut Task> {
+        self.tasks.iter_mut().find(|t| t.id == id)
+    }
+    
+    // Complete a task - explicit error handling
+    fn complete_task(&mut self, id: TaskId) -> Result<(), TodoError> {
+        match self.find_task_mut(id) {
+            Some(task) => {
+                task.completed = true;
+                Ok(())
+            },
+            None => Err(TodoError::TaskNotFound(id)),
+        }
+    }
+    
+    // Delete a task - explicit error handling
+    fn delete_task(&mut self, id: TaskId) -> Result<(), TodoError> {
+        let index = self.tasks.iter().position(|t| t.id == id);
+        match index {
+            Some(idx) => {
+                self.tasks.remove(idx);
+                Ok(())
+            },
+            None => Err(TodoError::TaskNotFound(id)),
+        }
+    }
+    
+    // Get all tasks
+    fn get_all_tasks(&self) -> &List<Task> {
+        &self.tasks
+    }
+    
+    // Get incomplete tasks
+    fn get_incomplete_tasks(&self) -> List<&Task> {
+        self.tasks.iter()
+            .filter(|t| !t.completed)
+            .collect()
+    }
+    
+    // Get completed tasks
+    fn get_completed_tasks(&self) -> List<&Task> {
+        self.tasks.iter()
+            .filter(|t| t.completed)
+            .collect()
+    }
+}
+
+// ============================================
+// JSON Persistence - Explicit IO effects
+// ============================================
+
+// Save to JSON file - has IO effect
+fn save_to_file(todo_list: &TodoList, path: &str) 
+    -> Result<(), TodoError> !IO + Error<TodoError> {
+    
+    // Serialize to JSON
+    let json = json::to_string(todo_list)
+        .map_err(|e| TodoError::ParseError(e.to_string()))?;
+    
+    // Write to file
+    File::write(path, json)
+        .map_err(|e| TodoError::FileError(e.to_string()))?;
+    
+    Ok(())
+}
+
+// Load from JSON file - has IO effect
+fn load_from_file(path: &str) 
+    -> Result<TodoList, TodoError> !IO + Error<TodoError> {
+    
+    // Read file
+    let contents = File::read(path)
+        .map_err(|e| TodoError::FileError(e.to_string()))?;
+    
+    // Parse JSON
+    let todo_list: TodoList = json::from_string(&contents)
+        .map_err(|e| TodoError::ParseError(e.to_string()))?;
+    
+    Ok(todo_list)
+}
+
+// ============================================
+// Command Parsing - Pattern matching
+// ============================================
+
+fn parse_command(args: List<String>) -> Result<Command, TodoError> {
+    if args.len() < 2 {
+        return Ok(Command::Help);
+    }
+    
+    match args.get(1) {
+        Some("add") => {
+            if args.len() < 4 {
+                return Err(TodoError::InvalidInput(
+                    "Usage: todo add <title> <description>".to_string()
+                ));
+            }
+            Ok(Command::Add {
+                title: args.get(2).unwrap().clone(),
+                description: args.get(3).unwrap().clone(),
+            })
+        },
+        Some("list") => {
+            let show_completed = args.len() > 2 && args.get(2) == Some("--all");
+            Ok(Command::List { show_completed })
+        },
+        Some("complete") => {
+            if args.len() < 3 {
+                return Err(TodoError::InvalidInput(
+                    "Usage: todo complete <id>".to_string()
+                ));
+            }
+            let id_str = args.get(2).unwrap();
+            let id = id_str.parse::<u64>()
+                .map_err(|_| TodoError::InvalidInput(
+                    format!("Invalid task ID: {}", id_str)
+                ))?;
+            Ok(Command::Complete { id: TaskId::from(id) })
+        },
+        Some("delete") => {
+            if args.len() < 3 {
+                return Err(TodoError::InvalidInput(
+                    "Usage: todo delete <id>".to_string()
+                ));
+            }
+            let id_str = args.get(2).unwrap();
+            let id = id_str.parse::<u64>()
+                .map_err(|_| TodoError::InvalidInput(
+                    format!("Invalid task ID: {}", id_str)
+                ))?;
+            Ok(Command::Delete { id: TaskId::from(id) })
+        },
+        Some("help") => Ok(Command::Help),
+        Some(cmd) => Err(TodoError::InvalidInput(
+            format!("Unknown command: {}", cmd)
+        )),
+        None => Ok(Command::Help),
+    }
+}
+
+// ============================================
+// Command Execution - Explicit effects
+// ============================================
+
+fn execute_command(
+    todo_list: &mut TodoList,
+    command: Command,
+) -> Result<(), TodoError> !IO + Error<TodoError> {
+    match command {
+        Command::Add { title, description } => {
+            let task_id = todo_list.add_task(title.clone(), description.clone());
+            println("Added task {}: {}", task_id, title);
+            save_to_file(todo_list, "todos.json")?;
+            Ok(())
+        },
+        
+        Command::List { show_completed } => {
+            if show_completed {
+                println("All Tasks:");
+                for task in todo_list.get_all_tasks() {
+                    let status = if task.completed { "✓" } else { " " };
+                    println("  [{}] {} - {} (ID: {})", 
+                        status, task.title, task.description, task.id);
+                }
+            } else {
+                println("Incomplete Tasks:");
+                let incomplete = todo_list.get_incomplete_tasks();
+                if incomplete.is_empty() {
+                    println("  No incomplete tasks!");
+                } else {
+                    for task in incomplete {
+                        println("  [ ] {} - {} (ID: {})", 
+                            task.title, task.description, task.id);
+                    }
+                }
+            }
+            Ok(())
+        },
+        
+        Command::Complete { id } => {
+            todo_list.complete_task(id)?;
+            println("Marked task {} as completed", id);
+            save_to_file(todo_list, "todos.json")?;
+            Ok(())
+        },
+        
+        Command::Delete { id } => {
+            todo_list.delete_task(id)?;
+            println("Deleted task {}", id);
+            save_to_file(todo_list, "todos.json")?;
+            Ok(())
+        },
+        
+        Command::Help => {
+            println("Veritas To-Do List Manager");
+            println("");
+            println("Usage: todo <command> [arguments]");
+            println("");
+            println("Commands:");
+            println("  add <title> <description>  Add a new task");
+            println("  list                        List incomplete tasks");
+            println("  list --all                  List all tasks");
+            println("  complete <id>               Mark a task as completed");
+            println("  delete <id>                 Delete a task");
+            println("  help                        Show this help message");
+            Ok(())
+        },
+    }
+}
+
+// ============================================
+// Main Entry Point - Explicit IO effect
+// ============================================
+
+fn main() !IO {
+    // Get command line arguments
+    let args = env::args();
+    
+    // Load or create todo list
+    let mut todo_list = match load_from_file("todos.json") {
+        Ok(list) => list,
+        Err(TodoError::FileError(_)) => {
+            // File doesn't exist, create new list
+            TodoList::new()
+        },
+        Err(e) => {
+            eprintln("Error loading todos: {:?}", e);
+            return;
+        },
+    };
+    
+    // Parse command
+    let command = match parse_command(args) {
+        Ok(cmd) => cmd,
+        Err(TodoError::InvalidInput(msg)) => {
+            eprintln("Error: {}", msg);
+            eprintln("Run 'todo help' for usage information");
+            return;
+        },
+        Err(e) => {
+            eprintln("Error: {:?}", e);
+            return;
+        },
+    };
+    
+    // Execute command - exhaustive error handling
+    match execute_command(&mut todo_list, command) {
+        Ok(_) => {},
+        Err(TodoError::TaskNotFound(id)) => {
+            eprintln("Error: Task {} not found", id);
+        },
+        Err(TodoError::FileError(msg)) => {
+            eprintln("File error: {}", msg);
+        },
+        Err(TodoError::ParseError(msg)) => {
+            eprintln("Parse error: {}", msg);
+        },
+        Err(TodoError::InvalidInput(msg)) => {
+            eprintln("Invalid input: {}", msg);
+        },
+    }
+}

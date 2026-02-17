@@ -274,7 +274,10 @@ class TypeChecker:
             return self.fresh_type_var()
         
         # Instantiate type scheme with fresh variables
-        return scheme.instantiate(lambda: f"t{self.type_var_counter := self.type_var_counter + 1}")
+        def fresh_var_gen():
+            self.type_var_counter += 1
+            return f"t{self.type_var_counter}"
+        return scheme.instantiate(fresh_var_gen)
     
     def _infer_binary_op(self, binop: BinaryOp, env: TypeEnvironment) -> InferredType:
         """Infer type of a binary operation."""
@@ -597,9 +600,13 @@ class TypeChecker:
         scheme = generalize(env.free_vars(), final_type)
         
         # Handle pattern binding
-        if isinstance(let.pattern, IdentifierPattern):
-            env.bind(let.pattern.name, scheme)
-        # TODO: Handle other pattern types
+        if let.pattern:
+            if isinstance(let.pattern, IdentifierPattern):
+                env.bind(let.pattern.name, scheme)
+            # TODO: Handle other pattern types
+        elif let.name:
+            # Simple name binding (not a pattern)
+            env.bind(let.name, scheme)
     
     def _check_assign_stmt(self, assign: AssignStmt, env: TypeEnvironment) -> None:
         """Type check an assignment statement."""
