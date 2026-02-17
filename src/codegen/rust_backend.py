@@ -12,6 +12,19 @@ from ..ast.types import Effect, EffectKind
 class RustBackend:
     """Generates Rust code from Veritas IR."""
     
+    # Mapping of Veritas builtins to Rust macros/functions
+    BUILTIN_MACROS = {
+        'println': 'println!',
+        'print': 'print!',
+        'eprintln': 'eprintln!',
+        'eprint': 'eprint!',
+        'format': 'format!',
+        'panic': 'panic!',
+        'assert': 'assert!',
+        'debug_assert': 'debug_assert!',
+        'vec': 'vec!',
+    }
+    
     def __init__(self):
         self.indent_level = 0
         self.branded_types: Set[str] = set()
@@ -243,10 +256,18 @@ class RustBackend:
                 else:
                     args.append(op.name)
             args_str = ", ".join(args)
+            
+            # Map builtin functions to Rust macros
+            func_name = instr.function_name
+            if func_name in self.BUILTIN_MACROS:
+                rust_func = self.BUILTIN_MACROS[func_name]
+                # Macros like println! don't return values we can bind
+                return f"{rust_func}({args_str});"
+            
             if instr.result:
-                return f"let {instr.result.name} = {instr.function_name}({args_str});"
+                return f"let {instr.result.name} = {func_name}({args_str});"
             else:
-                return f"{instr.function_name}({args_str});"
+                return f"{func_name}({args_str});"
         
         elif instr.opcode == IROpcode.RETURN:
             if len(instr.operands) > 0:
