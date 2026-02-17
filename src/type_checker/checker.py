@@ -44,7 +44,7 @@ class TypeChecker:
         self.constraints: List[Constraint] = []
         self.errors: List[TypeCheckError] = []
         self.type_var_counter = 0
-        self.expr_types: Dict[Expression, InferredType] = {}
+        self.expr_types: Dict[int, InferredType] = {}  # id(expr) -> type
         self.branded_types: Dict[str, Type] = {}  # brand_name -> base_type
         
     def fresh_type_var(self) -> TypeVariable:
@@ -88,8 +88,8 @@ class TypeChecker:
             substitution = solver.solve(self.constraints)
             
             # Apply substitution to all expression types
-            for expr, inferred_type in self.expr_types.items():
-                self.expr_types[expr] = inferred_type.substitute(substitution)
+            for expr_id, inferred_type in self.expr_types.items():
+                self.expr_types[expr_id] = inferred_type.substitute(substitution)
             
             return True
         except UnificationError as e:
@@ -242,7 +242,7 @@ class TypeChecker:
             result = self.fresh_type_var()
         
         # Store inferred type for this expression
-        self.expr_types[expr] = result
+        self.expr_types[id(expr)] = result
         return result
     
     def _infer_literal(self, lit: Literal) -> InferredType:

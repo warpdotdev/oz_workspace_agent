@@ -20,6 +20,14 @@ from .types import Type, Effect
 class ASTNode(ABC):
     """Base class for all AST nodes."""
     span: Span
+    
+    def __hash__(self) -> int:
+        """Hash based on object identity."""
+        return id(self)
+    
+    def __eq__(self, other) -> bool:
+        """Equality based on object identity."""
+        return self is other
 
 
 # ============================================================================
