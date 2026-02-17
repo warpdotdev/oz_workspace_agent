@@ -1295,6 +1295,9 @@ class Parser:
         expr = None
         
         while not self.check(TokenKind.RBRACE) and not self.is_at_end():
+            # Track position for error recovery
+            pos_before = self.pos
+            
             # Check if this is a final expression (no semicolon)
             if self.is_expression_start() and self.could_be_final_expr():
                 expr = self.parse_expression()
@@ -1308,6 +1311,11 @@ class Parser:
             else:
                 stmt = self.parse_statement()
                 statements.append(stmt)
+            
+            # Error recovery: if we didn't advance, skip the problematic token
+            if self.pos == pos_before and not self.check(TokenKind.RBRACE) and not self.is_at_end():
+                self.error(f"Unexpected token {self.current().kind.name}, skipping")
+                self.advance()
         
         self.consume(TokenKind.RBRACE, "Expected '}' after block")
         
