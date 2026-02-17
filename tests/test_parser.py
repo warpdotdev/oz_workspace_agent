@@ -605,9 +605,11 @@ class TestExamplePrograms(unittest.TestCase):
     
     def test_contracts(self):
         """Test parsing contracts."""
+        # Contracts appear BEFORE the function body (after return type/effects)
         code = """
-        fn divide(a: i32, b: i32) -> i32 {
+        fn divide(a: i32, b: i32) -> i32
             requires b != 0;
+        {
             a / b
         }
         """

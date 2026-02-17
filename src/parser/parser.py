@@ -1284,7 +1284,10 @@ class Parser:
             return RangeExpr(span=self.make_span(start), start=None, end=end, inclusive=True)
         
         self.error(f"Expected expression, got {self.current().kind.name}")
-        return Identifier(span=self.current().span, name="<error>")
+        # Advance past the unexpected token to prevent infinite loop
+        bad_span = self.current().span
+        self.advance()
+        return Identifier(span=bad_span, name="<error>")
     
     def parse_block_expr(self) -> BlockExpr:
         """Parse block expression."""
