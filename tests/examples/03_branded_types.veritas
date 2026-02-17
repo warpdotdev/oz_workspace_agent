@@ -1,0 +1,34 @@
+type UserId = u64 as UserId;
+type OrderId = u64 as OrderId;
+
+struct User {
+    id: UserId,
+    name: String,
+}
+
+struct Order {
+    id: OrderId,
+    user_id: UserId,
+    total: f64,
+}
+
+fn create_user(id: u64, name: String) -> User {
+    User {
+        id: UserId::from(id),
+        name,
+    }
+}
+
+fn create_order(order_id: u64, user_id: UserId, total: f64) -> Order {
+    Order {
+        id: OrderId::from(order_id),
+        user_id,
+        total,
+    }
+}
+
+fn main() !IO {
+    let user = create_user(1, "Alice");
+    let order = create_order(100, user.id, 99.99);
+    println("Order {} for user {}", order.id, order.user_id);
+}
