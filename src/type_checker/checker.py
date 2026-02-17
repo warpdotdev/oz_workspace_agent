@@ -357,7 +357,7 @@ class TypeChecker:
         func_type = self._infer_expr(call.function, env)
         
         # Infer argument types
-        arg_types = [self._infer_expr(arg, env) for arg in call.arguments]
+        arg_types = [self._infer_expr(arg, env) for arg in call.args]
         
         # Create fresh return type variable
         return_type = self.fresh_type_var()
@@ -381,7 +381,7 @@ class TypeChecker:
     def _infer_method_call(self, call: MethodCall, env: TypeEnvironment) -> InferredType:
         """Infer type of a method call."""
         # Infer receiver type
-        receiver_type = self._infer_expr(call.receiver, env)
+        receiver_type = self._infer_expr(call.object, env)
         
         # For now, treat as function call with receiver as first argument
         # Full implementation would look up methods in type's impl blocks
@@ -489,7 +489,7 @@ class TypeChecker:
     def _infer_field_access(self, access: FieldAccess, env: TypeEnvironment) -> InferredType:
         """Infer type of field access."""
         # Infer base expression type
-        base_type = self._infer_expr(access.base, env)
+        base_type = self._infer_expr(access.object, env)
         
         # For now, return fresh type variable
         # Full implementation would look up field type in struct definition
@@ -572,8 +572,8 @@ class TypeChecker:
             # Just infer the expression type
             self._infer_expr(stmt.expr, env)
         elif isinstance(stmt, ReturnStmt):
-            if stmt.expr:
-                self._infer_expr(stmt.expr, env)
+            if stmt.value:
+                self._infer_expr(stmt.value, env)
     
     def _check_let_stmt(self, let: LetStmt, env: TypeEnvironment) -> None:
         """Type check a let statement."""
