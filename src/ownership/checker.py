@@ -51,8 +51,6 @@ class OwnershipChecker:
         self.errors: List[OwnershipError] = []
         # Variable ownership state per scope
         self.variables: Dict[str, Variable] = {}
-        # Track which expressions caused moves
-        self.moved_exprs: Set[Expression] = set()
     
     def check_program(self, program: Program) -> bool:
         """Check ownership for entire program.
@@ -216,7 +214,6 @@ class OwnershipChecker:
                 if not var.moved:
                     var.moved = True
                     var.move_location = expr.span
-                    self.moved_exprs.add(expr)
     
     def _check_if_expr(self, if_expr: IfExpr) -> None:
         """Check if expression."""
@@ -310,11 +307,11 @@ class OwnershipChecker:
             # Check initializer
             if isinstance(stmt.pattern, IdentifierPattern):
                 # New variable - initializer is moved into it
-                self._check_move(stmt.initializer)
+                self._check_move(stmt.value)
                 # Add new variable to scope
                 self.variables[stmt.pattern.name] = Variable(name=stmt.pattern.name)
             else:
-                self._check_expr(stmt.initializer)
+                self._check_expr(stmt.value)
         elif isinstance(stmt, AssignStmt):
             # Assignment moves the value
             self._check_move(stmt.value)
