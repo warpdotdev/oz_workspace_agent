@@ -111,8 +111,8 @@ class OwnershipChecker:
             for elem in expr.elements:
                 self._check_expr(elem)
         elif isinstance(expr, StructExpr):
-            for field_expr in expr.fields:
-                self._check_expr(field_expr.value)
+            for field_name, field_value in expr.fields:
+                self._check_expr(field_value)
         elif isinstance(expr, CastExpr):
             self._check_expr(expr.expr)
         elif isinstance(expr, TryExpr):
