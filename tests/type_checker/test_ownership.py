@@ -48,8 +48,9 @@ class TestOwnershipBasics(unittest.TestCase):
         init = Identifier(name="x", span=self.span)
         pattern = IdentifierPattern(name="y", span=self.span)
         let_stmt = LetStmt(
+            name="y",
             pattern=pattern,
-            initializer=init,
+            value=init,
             span=self.span
         )
         
@@ -86,8 +87,9 @@ class TestOwnershipBasics(unittest.TestCase):
         )
         pattern = IdentifierPattern(name="y", span=self.span)
         let_stmt = LetStmt(
+            name="y",
             pattern=pattern,
-            initializer=borrow,
+            value=borrow,
             span=self.span
         )
         
