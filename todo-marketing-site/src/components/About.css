@@ -1,0 +1,47 @@
+.about {
+  background-color: var(--color-card);
+}
+
+.about-content {
+  max-width: 700px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.about-text h2 {
+  margin-bottom: var(--spacing-xl);
+}
+
+.about-text p {
+  font-size: 1.1rem;
+  margin-bottom: var(--spacing-md);
+  line-height: 1.8;
+}
+
+.about-values {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-xl);
+  margin-top: var(--spacing-2xl);
+  flex-wrap: wrap;
+}
+
+.value-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.value-icon {
+  font-size: 1.25rem;
+}
+
+@media (max-width: 768px) {
+  .about-values {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+}
