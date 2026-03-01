@@ -12,7 +12,6 @@ import { useAppStore } from "../../store/appStore";
 import {
   NoAgentSelected,
   NoAgentsCreated,
-  NoFileSelected,
 } from "./EmptyStates";
 import type { TabId, AgentStatus } from "../../types";
 import { MarkdownEditor } from "../editor/MarkdownEditor";
