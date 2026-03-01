@@ -61,4 +61,12 @@ export const useAppStore = create<AppState>((set) => ({
   // Command palette
   commandPaletteOpen: false,
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
+
+  // Editor state
+  selectedFileId: null,
+  setSelectedFileId: (id) => set({ selectedFileId: id }),
+  editorContent: "",
+  setEditorContent: (content) => set({ editorContent: content }),
+  previewMode: false,
+  setPreviewMode: (mode) => set({ previewMode: mode }),
 }));

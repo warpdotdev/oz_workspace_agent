@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  FileEdit,
   Calendar,
   Shield,
   Server,
@@ -11,6 +10,9 @@ import {
 } from "lucide-react";
 import { useAppStore } from "../../store/appStore";
 import type { TabId, AgentStatus } from "../../types";
+import { MarkdownEditor } from "../editor/MarkdownEditor";
+
+import { FileEdit } from "lucide-react";
 
 const tabs: { id: TabId; label: string; icon: typeof FileEdit }[] = [
   { id: "editor", label: "Editor", icon: FileEdit },
@@ -64,17 +66,6 @@ function TabBar() {
   );
 }
 
-function EditorPlaceholder() {
-  return (
-    <div className="flex flex-col items-center justify-center h-full text-text-tertiary gap-3">
-      <FileEdit size={48} strokeWidth={1} className="text-border" />
-      <div className="text-center">
-        <p className="text-text-secondary font-medium">Markdown Editor</p>
-        <p className="text-sm mt-1">Select a file to start editing</p>
-      </div>
-    </div>
-  );
-}
 
 function SchedulePlaceholder() {
   return (
@@ -125,7 +116,7 @@ function ObservePlaceholder() {
 }
 
 const tabContent: Record<TabId, () => React.JSX.Element> = {
-  editor: EditorPlaceholder,
+  editor: MarkdownEditor,
   schedule: SchedulePlaceholder,
   identity: IdentityPlaceholder,
   environments: EnvironmentsPlaceholder,

@@ -44,4 +44,12 @@ export interface AppState {
   // Command palette
   commandPaletteOpen: boolean;
   setCommandPaletteOpen: (open: boolean) => void;
+
+  // Editor state
+  selectedFileId: string | null;
+  setSelectedFileId: (id: string | null) => void;
+  editorContent: string;
+  setEditorContent: (content: string) => void;
+  previewMode: boolean;
+  setPreviewMode: (mode: boolean) => void;
 }
