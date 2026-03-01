@@ -2,6 +2,7 @@ import { Sidebar } from "../sidebar/Sidebar";
 import { MainContent } from "../main/MainContent";
 import { RightPanel } from "../panels/RightPanel";
 import { CommandPalette } from "./CommandPalette";
+import { CreateAgentModal } from "../sidebar/CreateAgentModal";
 
 export function AppLayout() {
   return (
@@ -19,6 +20,7 @@ export function AppLayout() {
 
       {/* Overlays */}
       <CommandPalette />
+      <CreateAgentModal />
     </>
   );
 }

@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  FileEdit,
   Calendar,
   Shield,
   Server,
@@ -10,7 +9,14 @@ import {
   Bot,
 } from "lucide-react";
 import { useAppStore } from "../../store/appStore";
+import {
+  NoAgentSelected,
+  NoAgentsCreated,
+} from "./EmptyStates";
 import type { TabId, AgentStatus } from "../../types";
+import { MarkdownEditor } from "../editor/MarkdownEditor";
+
+import { FileEdit } from "lucide-react";
 
 const tabs: { id: TabId; label: string; icon: typeof FileEdit }[] = [
   { id: "editor", label: "Editor", icon: FileEdit },
@@ -64,17 +70,6 @@ function TabBar() {
   );
 }
 
-function EditorPlaceholder() {
-  return (
-    <div className="flex flex-col items-center justify-center h-full text-text-tertiary gap-3">
-      <FileEdit size={48} strokeWidth={1} className="text-border" />
-      <div className="text-center">
-        <p className="text-text-secondary font-medium">Markdown Editor</p>
-        <p className="text-sm mt-1">Select a file to start editing</p>
-      </div>
-    </div>
-  );
-}
 
 function SchedulePlaceholder() {
   return (
@@ -125,7 +120,7 @@ function ObservePlaceholder() {
 }
 
 const tabContent: Record<TabId, () => React.JSX.Element> = {
-  editor: EditorPlaceholder,
+  editor: MarkdownEditor,
   schedule: SchedulePlaceholder,
   identity: IdentityPlaceholder,
   environments: EnvironmentsPlaceholder,
@@ -141,6 +136,44 @@ export function MainContent() {
   const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
+
+  // Handle empty states
+  if (agents.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col h-full min-w-0 bg-base">
+        <div className="flex items-center h-10 px-2 border-b border-border-subtle bg-panel shrink-0">
+          <button
+            onClick={toggleSidebar}
+            className="p-1.5 rounded-md text-text-tertiary hover:text-text-secondary hover:bg-surface transition-colors duration-[var(--transition-fast)]"
+          >
+            <PanelLeft size={16} />
+          </button>
+        </div>
+        <div className="flex-1">
+          <NoAgentsCreated />
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedAgent) {
+    return (
+      <div className="flex-1 flex flex-col h-full min-w-0 bg-base">
+        <div className="flex items-center h-10 px-2 border-b border-border-subtle bg-panel shrink-0">
+          <button
+            onClick={toggleSidebar}
+            className="p-1.5 rounded-md text-text-tertiary hover:text-text-secondary hover:bg-surface transition-colors duration-[var(--transition-fast)]"
+          >
+            <PanelLeft size={16} />
+          </button>
+        </div>
+        <div className="flex-1">
+          <NoAgentSelected />
+        </div>
+      </div>
+    );
+  }
+
   const ActiveContent = tabContent[activeTab];
 
   return (
@@ -156,17 +189,15 @@ export function MainContent() {
             <PanelLeft size={16} />
           </button>
 
-          {selectedAgent && (
-            <div className="flex items-center gap-2 ml-1">
-              <Bot size={15} className="text-text-secondary" />
-              <span className="text-sm font-medium text-text-primary">
-                {selectedAgent.name}
-              </span>
-              <span className={`text-xs ${statusColorMap[selectedAgent.status]}`}>
-                {statusLabelMap[selectedAgent.status]}
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 ml-1">
+            <Bot size={15} className="text-text-secondary" />
+            <span className="text-sm font-medium text-text-primary">
+              {selectedAgent.name}
+            </span>
+            <span className={`text-xs ${statusColorMap[selectedAgent.status]}`}>
+              {statusLabelMap[selectedAgent.status]}
+            </span>
+          </div>
         </div>
 
         <div className="flex items-center gap-1">
