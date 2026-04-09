@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Scrollbar styles for dark theme */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #3a3a3d;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #4a4a4d;
+  }
+
+  /* Selection color */
+  ::selection {
+    background: #6e56cf33;
+    color: #ededef;
+  }
+}
+
+@layer components {
+  /* Sidebar section header */
+  .sidebar-section-header {
+    @apply text-2xs font-medium uppercase tracking-wider text-text-tertiary px-3 py-2;
+  }
+
+  /* Sidebar list item */
+  .sidebar-item {
+    @apply flex items-center gap-2 px-3 py-1.5 text-sm text-text-secondary rounded cursor-pointer transition-colors duration-100;
+  }
+
+  .sidebar-item:hover {
+    @apply bg-surface-elevated text-text-primary;
+  }
+
+  .sidebar-item.active {
+    @apply bg-accent-muted text-accent;
+  }
+
+  /* Tab styles */
+  .tab-trigger {
+    @apply px-3 py-2 text-sm text-text-secondary border-b-2 border-transparent transition-colors duration-100;
+  }
+
+  .tab-trigger:hover {
+    @apply text-text-primary;
+  }
+
+  .tab-trigger[data-state="active"] {
+    @apply text-text-primary border-accent;
+  }
+}
